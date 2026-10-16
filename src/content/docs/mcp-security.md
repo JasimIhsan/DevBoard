@@ -4,21 +4,21 @@ The MCP server can read and change all of your data, so decide who should be all
 
 When DevBoard runs on `localhost`, only programs on your own computer can reach the MCP endpoint. For personal use this is usually enough.
 
-## Require an API key
+## The API key (required)
 
-Set `MCP_API_KEY` in the environment where DevBoard runs (for example in `.env`) and restart the app:
+The MCP endpoint only answers requests that carry the API key. Until a key exists it refuses everything with `503` and a message saying so.
 
-```bash
-MCP_API_KEY="a-long-random-secret"
-```
+Open **MCP access** at the bottom of the sidebar and click **Generate key**. DevBoard stores it as `MCP_API_KEY` in the project's `.env` file and shows it once; copy it into your client's settings. Every request must then send it as `Authorization: Bearer <key>` (or an `x-api-key` header). Requests with a wrong or missing key receive `401 Unauthorized`.
 
-Every request must then send the key as `Authorization: Bearer <key>` (or an `x-api-key` header). Requests without it receive `401 Unauthorized`.
+**Rotate key** replaces it. Clients using the old key stop working until you update them.
 
-Generate a strong key with:
+You can also set it by hand where DevBoard runs (for example in `.env`) and restart:
 
 ```bash
-openssl rand -hex 32
+MCP_API_KEY="$(openssl rand -hex 32)"
 ```
+
+> **Note** Where the app can't write `.env` (read-only hosting such as Vercel, or `DEVBOARD_LOCK_ENV=1`), the dialog only shows instructions: set `MCP_API_KEY` in your hosting provider's environment settings.
 
 ## Allowed origins
 
@@ -32,7 +32,7 @@ MCP_ALLOWED_ORIGINS="https://my-tool.example.com,http://localhost:5173"
 
 ## Exposing DevBoard on a network
 
-> **Warning** DevBoard has no sign-in. The app's normal REST API (`/api/*`) is **not** protected by `MCP_API_KEY`, only `/api/mcp` is. If you deploy DevBoard beyond your own machine, protect the whole site with a VPN, reverse-proxy authentication or your hosting provider's access controls.
+> **Warning** DevBoard has no sign-in. The app's normal REST API (`/api/*`) is **not** protected by `MCP_API_KEY`, only `/api/mcp` is, and anyone who can open the app can rotate the key from **MCP access**. If you deploy DevBoard beyond your own machine, protect the whole site with a VPN, reverse-proxy authentication or your hosting provider's access controls.
 
 ## Destructive actions
 
@@ -45,5 +45,5 @@ Deleting tasks, sprints and projects requires an explicit confirmation argument,
 ## Checklist
 
 - [ ] DevBoard is only reachable from trusted networks.
-- [ ] `MCP_API_KEY` is set if the app is reachable by anyone else.
+- [ ] The key was generated from **MCP access** (or set in the environment) and never committed.
 - [ ] The key is stored in your client's secret settings, not shared in chats or commits.

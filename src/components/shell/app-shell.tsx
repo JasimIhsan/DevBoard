@@ -15,6 +15,7 @@ import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
 import { CreateProjectDialog } from "./create-project-dialog";
 import { InstallDialog } from "@/components/pwa/install-dialog";
+import { McpAccessDialog } from "@/components/mcp/mcp-access-dialog";
 import { usePwa } from "@/lib/pwa";
 import { initRecent, recordRecent } from "@/lib/recent";
 import { applyProjectFlags, reconcileProjectFlags, useProjectFlags } from "@/lib/project-flags";
@@ -108,6 +109,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
       <CreateTaskDialog projects={active} />
       <CreateProjectDialog />
       <InstallDialog />
+      <McpAccessDialog />
       <TaskDetailSheet />
     </div>
   );

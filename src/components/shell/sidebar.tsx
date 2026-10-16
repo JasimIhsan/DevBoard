@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, LayoutDashboard, LifeBuoy, ListTodo, Plus, Settings2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, KeyRound, LayoutDashboard, LifeBuoy, ListTodo, Plus, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProjectDTO } from "@/lib/types";
@@ -15,7 +15,7 @@ import { RecentMenu, useResolvedRecent } from "./recent-menu";
 
 export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { projects: ProjectDTO[]; collapsed: boolean; onToggle?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { setCreateProjectOpen } = useUi();
+  const { setCreateProjectOpen, setMcpOpen } = useUi();
   const currentKey = /^\/projects\/([^/]+)/.exec(pathname)?.[1]?.toUpperCase();
   // The few projects you touched most recently, each linking to where you last were in it.
   const recentRows = useResolvedRecent(projects);
@@ -122,7 +122,10 @@ export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { project
         )}
       </div>
 
-      <div className="mt-auto">{item("/docs", "Help & docs", <LifeBuoy className="size-4" />, pathname.startsWith("/docs"))}</div>
+      <div className="mt-auto">
+        <McpButton collapsed={collapsed} onClick={() => { setMcpOpen(true); onNavigate?.(); }} />
+        {item("/docs", "Help & docs", <LifeBuoy className="size-4" />, pathname.startsWith("/docs"))}
+      </div>
 
       {onToggle && (
         <Button variant="ghost" size="sm" className={cn("justify-start justify-start text-muted-foreground", collapsed && "justify-center")} onClick={onToggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
@@ -130,5 +133,22 @@ export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { project
         </Button>
       )}
     </nav>
+  );
+}
+
+/** Opens the MCP access dialog: endpoint URL and API key for AI assistants. */
+function McpButton({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
+  const button = (
+    <button type="button" onClick={onClick} className={cn("flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent", collapsed && "justify-center px-0")}>
+      <KeyRound className="size-4" />
+      {!collapsed && <span className="truncate">MCP access</span>}
+    </button>
+  );
+  if (!collapsed) return button;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="right">MCP access</TooltipContent>
+    </Tooltip>
   );
 }
