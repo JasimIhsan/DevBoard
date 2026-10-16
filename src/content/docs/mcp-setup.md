@@ -1,17 +1,19 @@
 Make sure DevBoard is running first (`npm run dev` or `npm start`). The examples assume it is at `http://localhost:3000`; change the address if yours differs.
 
-You also need the **API key**: open **MCP access** at the bottom of the sidebar and click **Generate key** (see [MCP security](/docs/mcp-security)). Replace `YOUR_KEY` below with it. The HTTP endpoint refuses requests without it.
-
 > **Note** Client configuration formats change over time. If an option below is rejected, check your client's MCP documentation for the current syntax and reuse the same URL and header.
 
 ## Claude Code
 
 ```bash
+claude mcp add --transport http devboard http://localhost:3000/api/mcp
+```
+
+With an API key:
+
+```bash
 claude mcp add --transport http devboard http://localhost:3000/api/mcp \
   --header "Authorization: Bearer YOUR_KEY"
 ```
-
-(The **MCP access** dialog shows this command with your key filled in.)
 
 Run `/mcp` inside Claude Code to confirm `devboard` is connected.
 
@@ -50,7 +52,7 @@ Add DevBoard to `~/.gemini/settings.json`:
 }
 ```
 
-Run `/mcp` in Gemini CLI to list the tools.
+Omit `headers` if you have not set an API key. Run `/mcp` in Gemini CLI to list the tools.
 
 ## Cursor
 
@@ -76,8 +78,7 @@ Create `.vscode/mcp.json`:
   "servers": {
     "devboard": {
       "type": "http",
-      "url": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_KEY" }
+      "url": "http://localhost:3000/api/mcp"
     }
   }
 }
@@ -85,7 +86,7 @@ Create `.vscode/mcp.json`:
 
 ## Any other client
 
-Any client that supports MCP over **Streamable HTTP** needs the URL `http://localhost:3000/api/mcp` and the `Authorization: Bearer YOUR_KEY` header. For stdio-only clients, run the command `npm run --silent mcp` from the project folder (or the direct `tsx` command shown above) and set `DEVBOARD_URL`; the stdio bridge talks to the REST API directly and needs no key.
+Any client that supports MCP over **Streamable HTTP** only needs the URL `http://localhost:3000/api/mcp`, plus an `Authorization: Bearer` header if you set a key. For stdio-only clients, run the command `npm run --silent mcp` from the project folder (or the direct `tsx` command shown above) and set `DEVBOARD_URL`.
 
 ## Test the connection
 
@@ -95,13 +96,13 @@ The MCP Inspector lets you try tools by hand:
 npx @modelcontextprotocol/inspector
 ```
 
-Choose **Streamable HTTP**, enter the URL, add an `Authorization` header with `Bearer YOUR_KEY` and click **Connect**.
+Choose **Streamable HTTP**, enter the URL and click **Connect**.
 
 ## Settings
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
 | `DEVBOARD_URL` | stdio | Where the app is running. Default `http://localhost:3000`. |
-| `MCP_API_KEY` | HTTP | Required. Generated from **MCP access** in the sidebar, or set by hand. |
+| `MCP_API_KEY` | HTTP | Require this key on every request. |
 | `MCP_ALLOWED_ORIGINS` | HTTP | Comma-separated browser origins allowed to call the endpoint. |
 | `DEVBOARD_INTERNAL_URL` | HTTP | Address the server uses to reach itself, if the default (the request's own address) doesn't work behind a proxy. |

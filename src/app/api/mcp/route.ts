@@ -1,6 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { getEnv } from "@/lib/env-file";
 import { createHttpApi } from "@/lib/mcp/api";
 import { createDevBoardMcpServer } from "@/lib/mcp/server";
 
@@ -10,8 +9,7 @@ export const dynamic = "force-dynamic";
  * DevBoard MCP server over Streamable HTTP (stateless): POST /api/mcp with JSON-RPC.
  *
  * Security (the rest of DevBoard has no accounts, so this endpoint is the one door worth guarding):
- *  - MCP_API_KEY (required): every request must carry `Authorization: Bearer <key>` (or `x-api-key`). Until a key
- *    exists the endpoint answers 503; generate one from the sidebar (MCP access) or set it in `.env`.
+ *  - MCP_API_KEY (optional): when set, every request must carry `Authorization: Bearer <key>` (or `x-api-key`).
  *  - Browser requests are refused unless same-origin or listed in MCP_ALLOWED_ORIGINS, which blocks a malicious web page
  *    from driving your board through your browser (DNS rebinding / CSRF). Native MCP clients send no Origin header.
  */
@@ -20,9 +18,8 @@ const jsonRpcError = (status: number, code: number, message: string, headers?: H
   Response.json({ jsonrpc: "2.0", error: { code, message }, id: null }, { status, headers });
 
 function checkAuth(req: Request): Response | null {
-  // Read live (process env, then .env on disk) so a key generated in the UI works without a restart.
-  const key = getEnv("MCP_API_KEY");
-  if (!key) return jsonRpcError(503, -32003, "MCP authentication is not configured: open DevBoard → MCP access to generate a key, or set MCP_API_KEY.");
+  const key = process.env.MCP_API_KEY;
+  if (!key) return null;
   const header = req.headers.get("authorization") ?? "";
   const given = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : (req.headers.get("x-api-key") ?? "");
   const a = Buffer.from(given);

@@ -1,7 +1,7 @@
 /** First-run setup (server-only): is the database configured, reachable and migrated? */
 import { PrismaClient } from "@prisma/client";
 import { db, getDatabaseUrl, prismaLog } from "./db";
-import { ENV_FILE, envFileWritable, getEnv } from "./env-file";
+import { ENV_FILE, envFileWritable } from "./env-file";
 
 export type DbState = "ok" | "missing" | "unreachable" | "unmigrated";
 
@@ -16,7 +16,6 @@ export interface DbStatus {
 export interface SetupStatus {
   db: DbStatus;
   env: { writable: boolean; file: string };
-  mcp: { configured: boolean };
 }
 
 /** `postgresql://user:•••@host:5432/db` */
@@ -72,7 +71,6 @@ export async function getSetupStatus(): Promise<SetupStatus> {
   return {
     db: await getDbStatus(),
     env: { writable: envFileWritable(), file: ENV_FILE },
-    mcp: { configured: Boolean(getEnv("MCP_API_KEY")) },
   };
 }
 

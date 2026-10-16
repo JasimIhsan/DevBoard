@@ -42,8 +42,7 @@ Install prompts need a production build served over HTTPS or localhost: run `npm
 
 - Check DevBoard is running and open `http://localhost:3000` in a browser.
 - Confirm the URL ends in `/api/mcp`.
-- A `503` means no API key exists yet: open **MCP access** in the sidebar and generate one.
-- A `401` means the `Authorization: Bearer` header is missing or doesn't match `MCP_API_KEY`.
+- A `401` means `MCP_API_KEY` is set and the header is missing or wrong.
 - A `403` means a browser origin was blocked; add it to `MCP_ALLOWED_ORIGINS`.
 
 ### Claude Desktop shows invalid JSON or a server error

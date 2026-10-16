@@ -18,8 +18,6 @@ interface UiState {
   setCreateProjectOpen: (v: boolean) => void;
   installOpen: boolean;
   setInstallOpen: (v: boolean) => void;
-  mcpOpen: boolean;
-  setMcpOpen: (v: boolean) => void;
   paletteOpen: boolean;
   setPaletteOpen: (v: boolean) => void;
   /** Task detail lives in the URL (?task=CORE-12) so it is linkable and back-button friendly. */
@@ -35,7 +33,6 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
-  const [mcpOpen, setMcpOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -65,15 +62,13 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
       setCreateProjectOpen,
       installOpen,
       setInstallOpen,
-      mcpOpen,
-      setMcpOpen,
       paletteOpen,
       setPaletteOpen,
       openTask,
       closeTask,
       openTaskKey,
     }),
-    [createTask, createProjectOpen, installOpen, mcpOpen, paletteOpen, openTask, closeTask, openTaskKey],
+    [createTask, createProjectOpen, installOpen, paletteOpen, openTask, closeTask, openTaskKey],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
