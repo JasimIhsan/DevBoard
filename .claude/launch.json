@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "devboard", "url": "http://localhost:3001" }
+  ]
+}

@@ -1,0 +1,5 @@
+title,description,type,priority,status,sprint,labels,estimate,due_date
+"Add rate limiting to public API","Return 429 with Retry-After header",FEATURE,P1,TODO,Sprint 1,"api, security",3,2026-11-01
+"Fix flaky login test","Fails on CI about 1 in 5 runs",BUG,P0,IN_PROGRESS,Sprint 1,ci,1,
+"Upgrade Prisma to v7",,CHORE,P3,,,"deps",2,
+"Evaluate edge caching for dashboard","Spike: measure p95 before/after",SPIKE,P2,,Sprint 2,perf,,2026-11-15

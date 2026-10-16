@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Offline · DevBoard</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #0a0a0a; color: #fafafa; font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; }
+    main { max-width: 22rem; }
+    img { width: 72px; height: 72px; border-radius: 16px; }
+    h1 { margin: 20px 0 6px; font-size: 1.25rem; }
+    p { margin: 0 0 20px; color: #a1a1aa; font-size: .9rem; }
+    button { font: inherit; padding: 8px 18px; border-radius: 10px; border: 1px solid #27272a; background: #fafafa; color: #0a0a0a; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="" width="72" height="72">
+    <h1>You're offline</h1>
+    <p>DevBoard needs a connection to load your projects and tasks. Check your network, then try again.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>

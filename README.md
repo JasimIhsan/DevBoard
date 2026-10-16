@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DevBoard
 
-## Getting Started
+A fast, single-user, Jira-style Kanban board for developers. No auth — it's built for personal use.
 
-First, run the development server:
+**Stack:** Next.js (App Router, React 19) · TypeScript · Tailwind CSS v4 · shadcn/ui (Radix) · PostgreSQL + Prisma 6 · TanStack Query · dnd-kit · Zod · cmdk
+
+## Setup
 
 ```bash
+npm install
+createdb devboard                 # or: psql -c 'CREATE DATABASE devboard'
+cp .env.example .env              # then edit DATABASE_URL
+npx prisma migrate dev            # applies migrations + generates the client
+npm run db:seed                   # 2 projects, active + draft sprints, sample tasks
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Dashboard** — stats, active-sprint progress across projects, in-progress work, due-soon/overdue, recently done.
+- **Projects** (`/projects`) — manage every project in one place: progress, active sprint and activity at a glance; edit name, description and color (the key is permanent); delete with typed confirmation.
+- **Star** — star a project (sidebar row or Projects page) to pin it in a **Starred** group at the top of the sidebar; starred projects sort first everywhere.
+- **Archive** — hide a finished project without deleting it. Archived projects disappear from the sidebar, dashboard, all-projects board, search and Recent, and live under **Projects → Archived**. Their pages stay viewable with a banner and a Restore button; new tasks, sprints and CSV imports are blocked (the API returns 409). Archiving removes the star.
+- **Recent** — a Jira-style sidebar flyout (searchable, grouped Today / Yesterday / Earlier) plus a short inline list of the boards, backlogs and tasks you opened or worked on, each shown with its project's icon. It is **stored on the server and shared by every device** that opens this app (there are no accounts, so it is one global list): it follows you from your computer to your phone, works offline from a local cache, and queues visits until you're back online.
+- **All projects board** (`/board`) — one Kanban over the active sprints of every project: project-colored cards, project chips to show/hide projects, shared filters; drag a card between columns to change its status (cards sort by priority across projects).
+- **Kanban board** (`/projects/KEY/board`) — dnd-kit drag & drop with optimistic updates on desktop (≥1024px);
+  segmented column tabs with snap scrolling, quick-move bottom sheet and a floating “+” on mobile.
+- **Backlog grooming** (`/projects/KEY/backlog`) — sprint sections, drag tasks between sprints/backlog,
+  inline quick-add, start / complete (with carry-over) / delete sprints.
+- **Task detail** (`?task=CORE-12`, linkable) — Markdown description, subtasks with progress, comments,
+  activity log, labels, estimate, due date, PR link, auto-generated git branch + copy `git checkout -b`.
+- **Command palette** — `⌘K` / `Ctrl+K`: jump to projects, search tasks by key or title, create task/project. Press `c` anywhere to create a task.
+- **Filters** — text, priority, type, label.
+- **Fractional indexing** — `orderIndex: Float`; a reorder updates exactly one row (`src/lib/ordering.ts`), with an automatic column re-space if float precision runs out.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Documentation and MCP
 
-## Learn More
+- **In-app docs:** open **Help & docs** in the sidebar (or `/docs`). Short pages cover every feature; the Markdown sources live in `src/content/docs/`, and the page order is the `DOCS` list in `src/lib/docs-shared.ts`.
+- **MCP server:** AI assistants (Claude, Gemini, Cursor, …) can read and manage tasks through 27 tools.
+  - HTTP: `http://localhost:3000/api/mcp` (Streamable HTTP). Optional `MCP_API_KEY` protects it.
+  - stdio: `npm run --silent mcp` (set `DEVBOARD_URL` if the app is not on :3000).
+  - Setup per client, the tool list and security notes: `/docs/mcp-overview`.
 
-To learn more about Next.js, take a look at the following resources:
+## API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route | Purpose |
+| --- | --- |
+| `GET/POST /api/tasks` | List (`projectKey`, `sprintId`, `status`, `q`, `sort`, `limit`) / create |
+| `GET/PATCH/DELETE /api/tasks/:id` | `:id` is a UUID or a key such as `CORE-12` |
+| `PATCH /api/tasks/:id/reorder` | `{ newStatus, prevTaskId, nextTaskId }` — single-row fractional reorder |
+| `POST/PATCH/DELETE /api/tasks/:id/subtasks` | Checklist items |
+| `POST/DELETE /api/tasks/:id/comments` | Notes |
+| `GET/POST /api/projects` · `GET/DELETE /api/projects/:key` | Projects (`GET :key` returns project + sprints + tasks) |
+| `GET/POST/PATCH /api/projects/:key/sprints` | Sprint lifecycle: `start`, `complete`, `update`, `delete` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Layout
 
-## Deploy on Vercel
+```
+prisma/schema.prisma, seed.ts
+src/lib/        db, ordering, validators (Zod), serialize, data (server queries), client (TanStack hooks)
+src/app/api/    route handlers
+src/app/(dashboard)/   dashboard, board, backlog pages
+src/components/ board, backlog, task, shell (sidebar, topbar, ⌘K), ui (shadcn)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Install as an app (PWA)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+DevBoard is an installable Progressive Web App: its own window or home-screen icon, launched like a native app.
+
+| Platform | How |
+| --- | --- |
+| **Windows** | Chrome / Edge: the install icon in the address bar, or the **Install** button in the app's top bar |
+| **macOS** | Chrome / Edge: same as Windows. Safari 17+: **File → Add to Dock** |
+| **Android** | Chrome: **Install** in the top bar or ⋮ → Install app |
+| **iOS / iPadOS** | Safari: Share → **Add to Home Screen** |
+
+The top-bar download button opens a guide that picks your platform automatically and shows a one-click **Install now** where the browser allows it.
+
+- Installing requires **HTTPS** (or `localhost` on desktop). To install on a phone, serve the app over HTTPS (a deployment, or a tunnel to your machine).
+- The service worker (`public/sw.js`) is registered in **production builds only** (`npm run build && npm start`); `npm run dev` unregisters it so it never serves stale files. It caches static assets and an offline page, and never caches pages or `/api/*`.
+- Icons are generated from one SVG: `node scripts/generate-icons.mjs`.
