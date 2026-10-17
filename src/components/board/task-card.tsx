@@ -3,7 +3,7 @@
 import { forwardRef, memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowRightLeft, CheckSquare, GitBranch } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, CheckSquare, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,9 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
   ref,
 ) {
   const done = task.status === "DONE";
+  // Pushed to review/done with unchecked subtasks: flag it so unfinished work doesn't slip through.
+  const open = task.subtasksTotal - task.subtasksDone;
+  const incomplete = (task.status === "IN_REVIEW" || done) && open > 0;
   return (
     <div
       ref={ref}
@@ -37,6 +40,7 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
         "group relative cursor-grab select-none rounded-lg border bg-card p-3 text-left shadow-sm hover:border-foreground/25 focus-visible:outline-2 focus-visible:outline-ring",
         // The in-column original becomes an empty slot while its clone floats in the overlay.
         dragging && "border-dashed border-foreground/25 bg-transparent shadow-none [&>*]:invisible",
+        incomplete && "border-amber-500/50 bg-amber-500/5 hover:border-amber-500/70",
         overlay && "cursor-grabbing border-foreground/30 shadow-2xl ring-1 ring-foreground/10",
         className,
       )}
@@ -68,7 +72,13 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
       <div className="mt-2.5 flex items-center gap-3 text-[11px] text-muted-foreground">
         {task.dueDate && <DueChip date={task.dueDate} done={done} />}
         {task.subtasksTotal > 0 && (
-          <span className="inline-flex items-center gap-1"><CheckSquare className="size-3" />{task.subtasksDone}/{task.subtasksTotal}</span>
+          incomplete ? (
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-400" title={`${open} subtask${open === 1 ? "" : "s"} not completed`}>
+              <AlertTriangle className="size-3" />{task.subtasksDone}/{task.subtasksTotal}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1"><CheckSquare className="size-3" />{task.subtasksDone}/{task.subtasksTotal}</span>
+          )
         )}
         {task.branchName && (
           <button
