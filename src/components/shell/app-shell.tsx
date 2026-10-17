@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
-import { ChevronRight, Download, Menu, Moon, Plus, Search, Sun } from "lucide-react";
+import { ChevronRight, Download, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ProjectDTO } from "@/lib/types";
@@ -96,6 +97,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
               <Search /> Search…<kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px]">⌘K</kbd>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setPaletteOpen(true)}><Search /></Button>
+            <RefreshButton />
             <InstallButton />
             <ThemeToggle />
             <Button size="sm" onClick={() => openCreateTask({ projectKey })} className="max-sm:hidden"><Plus />New task</Button>
@@ -152,6 +154,22 @@ function Breadcrumbs({ pathname, projects }: { pathname: string; projects: Proje
         </span>
       ))}
     </nav>
+  );
+}
+
+/** Refetches everything on the page: client queries (board, backlog, tasks) and server-rendered data (dashboard, project list). */
+function RefreshButton() {
+  const qc = useQueryClient();
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const refresh = () => start(async () => {
+    router.refresh();
+    await qc.invalidateQueries();
+  });
+  return (
+    <Button variant="ghost" size="icon" aria-label="Refresh data" title="Refresh data" disabled={pending} onClick={refresh}>
+      <RefreshCw className={pending ? "animate-spin" : undefined} />
+    </Button>
   );
 }
 
