@@ -245,12 +245,12 @@ function TodoFab() {
 
   return (
     <Button
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 size-16 rounded-full shadow-lg sm:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 size-14 rounded-full shadow-lg sm:hidden"
       aria-label={onTodos ? "Back to previous page" : `To-dos${count ? `, ${count} open` : ""}`}
       onClick={onTodos ? back : () => router.push("/todos")}
     >
-      {onTodos ? <ArrowLeft className="size-7" /> : <ListChecks className="size-7" />}
-      {!onTodos && count > 0 && <span className="absolute -top-1 -right-1 grid min-w-6 place-items-center rounded-full border-2 border-background bg-foreground px-1 text-xs leading-5 font-semibold text-background">{count > 99 ? "99+" : count}</span>}
+      {onTodos ? <ArrowLeft className="size-6" /> : <ListChecks className="size-6" />}
+      {!onTodos && count > 0 && <span className="absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full border-2 border-background bg-foreground px-1 text-[11px] leading-4 font-semibold text-background">{count > 99 ? "99+" : count}</span>}
     </Button>
   );
 }
