@@ -24,6 +24,6 @@ With the box empty, the palette lists your most recent tasks.
 
 ## Recent
 
-The **Recent** menu in the sidebar lists the boards, backlogs and tasks you visited lately, like Jira's *Recent* list. It is saved on the server, so it follows you across devices.
+The **Recent** menu in the sidebar lists the projects you worked in lately, newest first, like Jira's *Recent* list. Each project appears once; opening one takes you to the board or backlog you were last on. It is saved on the server, so it follows you across devices.
 
 > **Note** There are no accounts, so Recent is shared by every device that opens this app. Use **Clear** in the menu to reset it.
