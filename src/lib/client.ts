@@ -52,7 +52,7 @@ function refetchWhenIdle(qc: QueryClient, key: QueryKey) {
   setTimeout(tick, 150);
 }
 
-async function guardedGet<T>(qc: QueryClient, key: QueryKey, url: string): Promise<T> {
+export async function guardedGet<T>(qc: QueryClient, key: QueryKey, url: string): Promise<T> {
   const epoch = writeEpoch;
   const data = await api<T>(url);
   if (epoch !== writeEpoch || qc.isMutating() > 0) {

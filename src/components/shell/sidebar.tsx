@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, LayoutDashboard, LifeBuoy, ListTodo, Plus, Settings2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, LayoutDashboard, LifeBuoy, ListChecks, ListTodo, Plus, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProjectDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/components/ui-state";
+import { useOpenTodoCount } from "@/lib/todos";
 import { ProjectTile } from "./project-tile";
 import { StarButton } from "./star-button";
 import { RecentMenu, useResolvedRecent } from "./recent-menu";
@@ -16,6 +17,7 @@ import { RecentMenu, useResolvedRecent } from "./recent-menu";
 export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { projects: ProjectDTO[]; collapsed: boolean; onToggle?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname();
   const { setCreateProjectOpen } = useUi();
+  const todoCount = useOpenTodoCount();
   const currentKey = /^\/projects\/([^/]+)/.exec(pathname)?.[1]?.toUpperCase();
   // The few projects you touched most recently, each linking to where you last were in it.
   const recentRows = useResolvedRecent(projects);
@@ -75,6 +77,7 @@ export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { project
 
       {item("/", "Dashboard", <LayoutDashboard className="size-4" />, pathname === "/")}
       {item("/board", "All projects board", <Columns3 className="size-4" />, pathname === "/board")}
+      {item("/todos", "To-dos", <ListChecks className="size-4" />, pathname === "/todos", todoCount > 0 && <span className="ml-auto rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">{todoCount}</span>)}
       <RecentMenu projects={projects} collapsed={collapsed} onNavigate={onNavigate} />
 
       {!collapsed && recentProjects.length > 0 && (

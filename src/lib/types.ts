@@ -79,3 +79,12 @@ export interface ProjectBoardDTO {
   sprints: SprintDTO[];
   tasks: TaskDTO[];
 }
+
+export interface TodoDTO {
+  id: string;
+  title: string;
+  done: boolean;
+  doneAt: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}

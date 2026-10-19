@@ -118,3 +118,13 @@ export const importTasksSchema = z.object({
     .max(500),
 });
 export type ImportTasksInput = z.infer<typeof importTasksSchema>;
+
+export const createTodoSchema = z.object({
+  title: z.string().trim().min(1, "Write something to do").max(200),
+  dueDate: z.string().datetime().nullable().optional(),
+});
+export const updateTodoSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  done: z.boolean().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+});

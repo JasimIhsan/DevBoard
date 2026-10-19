@@ -18,6 +18,7 @@ export const DOCS: DocMeta[] = [
   { group: "Features", slug: "backlog-sprints", title: "Backlog & sprints", description: "Plan work and run time-boxed sprints." },
   { group: "Features", slug: "import-csv", title: "Import from CSV", description: "Bring many tasks in at once." },
   { group: "Features", slug: "dashboard", title: "Dashboard & all-projects board", description: "See everything across projects." },
+  { group: "Features", slug: "todos", title: "To-dos", description: "A quick personal checklist, one tap away." },
   { group: "Features", slug: "search-shortcuts", title: "Search, Recent & shortcuts", description: "Move around quickly." },
   { group: "Features", slug: "install-app", title: "Install as an app", description: "Use DevBoard on macOS, Windows, Android and iOS." },
   { group: "MCP for AI", slug: "mcp-overview", title: "MCP overview", description: "Let AI assistants manage your tasks." },

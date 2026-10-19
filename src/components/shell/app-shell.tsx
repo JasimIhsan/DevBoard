@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
-import { ChevronRight, Download, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
+import { ChevronRight, Download, ListChecks, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ProjectDTO } from "@/lib/types";
 import { UiProvider, useUi } from "@/components/ui-state";
 import { CreateTaskDialog } from "@/components/task/create-task-dialog";
+import { TodoSheet } from "@/components/todos/todo-sheet";
+import { useOpenTodoCount } from "@/lib/todos";
 import { TaskDetailSheet } from "@/components/task/task-detail-sheet";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "./command-palette";
@@ -36,7 +38,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
   const projects = useMemo(() => applyProjectFlags(serverProjects, flags), [serverProjects, flags]);
   const active = useMemo(() => projects.filter((p) => !p.archived), [projects]); // archived projects are hidden from navigation
   useEffect(() => reconcileProjectFlags(serverProjects), [serverProjects]);
-  const { openCreateTask, setPaletteOpen } = useUi();
+  const { openCreateTask, setPaletteOpen, setTodoOpen } = useUi();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
@@ -55,14 +57,15 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      if (e.metaKey || e.ctrlKey || e.altKey || e.key !== "c") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== "c" && e.key !== "t")) return;
       if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.closest("[role=dialog]"))) return;
       e.preventDefault();
-      openCreateTask({ projectKey: /^\/projects\/([^/]+)/.exec(pathname)?.[1] });
+      if (e.key === "t") setTodoOpen(true);
+      else openCreateTask({ projectKey: /^\/projects\/([^/]+)/.exec(pathname)?.[1] });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openCreateTask, pathname]);
+  }, [openCreateTask, setTodoOpen, pathname]);
 
   const projectKey = /^\/projects\/([^/]+)/.exec(pathname)?.[1];
 
@@ -97,6 +100,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
               <Search /> Search…<kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px]">⌘K</kbd>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setPaletteOpen(true)}><Search /></Button>
+            <TodoButton />
             <RefreshButton />
             <InstallButton />
             <ThemeToggle />
@@ -110,6 +114,8 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
       <CreateTaskDialog projects={active} />
       <CreateProjectDialog />
       <InstallDialog />
+      <TodoSheet />
+      <TodoFab />
       <TaskDetailSheet />
     </div>
   );
@@ -131,10 +137,12 @@ function Breadcrumbs({ pathname, projects }: { pathname: string; projects: Proje
   const m = /^\/projects\/([^/]+)(?:\/(board|backlog))?/.exec(pathname);
   const central = pathname === "/board";
   const manage = pathname === "/projects";
+  const todos = pathname === "/todos";
   const docs = pathname === "/docs" || pathname.startsWith("/docs/");
-  const crumbs: { label: string; href?: string }[] = [{ label: "Dashboard", href: m || central || manage || docs ? "/" : undefined }];
+  const crumbs: { label: string; href?: string }[] = [{ label: "Dashboard", href: m || central || manage || docs || todos ? "/" : undefined }];
   if (central) crumbs.push({ label: "All projects board" });
   if (manage) crumbs.push({ label: "Projects" });
+  if (todos) crumbs.push({ label: "To-dos" });
   if (docs) crumbs.push({ label: "Help & docs" });
   if (m) {
     const project = projects.find((p) => p.key === m[1].toUpperCase());
@@ -154,6 +162,32 @@ function Breadcrumbs({ pathname, projects }: { pathname: string; projects: Proje
         </span>
       ))}
     </nav>
+  );
+}
+
+/** Opens the to-do drawer; shows how many are still open. */
+function TodoButton() {
+  const { setTodoOpen } = useUi();
+  const count = useOpenTodoCount();
+  return (
+    <Button variant="ghost" size="icon" className="relative max-sm:hidden" aria-label={`To-dos${count ? `, ${count} open` : ""}`} title="To-dos (T)" onClick={() => setTodoOpen(true)}>
+      <ListChecks />
+      {count > 0 && <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-4 font-medium text-primary-foreground">{count > 99 ? "99+" : count}</span>}
+    </Button>
+  );
+}
+
+/** Phones: a button on every page, so adding a to-do is always one tap away. Bottom-left; the board's "New task" button owns bottom-right. */
+function TodoFab() {
+  const { todoOpen, setTodoOpen } = useUi();
+  const count = useOpenTodoCount();
+  const onTodosPage = usePathname() === "/todos";
+  if (todoOpen || onTodosPage) return null; // the full page is already open
+  return (
+    <Button size="icon-lg" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 size-12 rounded-full shadow-lg sm:hidden" aria-label={`To-dos${count ? `, ${count} open` : ""}`} onClick={() => setTodoOpen(true)}>
+      <ListChecks className="size-5" />
+      {count > 0 && <span className="absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full border-2 border-background bg-foreground px-1 text-[10px] leading-4 font-semibold text-background">{count > 99 ? "99+" : count}</span>}
+    </Button>
   );
 }
 

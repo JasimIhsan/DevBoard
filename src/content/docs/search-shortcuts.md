@@ -17,6 +17,7 @@ With the box empty, the palette lists your most recent tasks.
 | --- | --- |
 | `⌘K` / `Ctrl+K` | Open the command palette. |
 | `C` | Create a task (when not typing in a field). |
+| `T` | Open your [to-dos](/docs/todos) (when not typing in a field). |
 | `Enter` | Open the focused task card. |
 | `Space` + arrows | Pick up and move a card with the keyboard. |
 | `Esc` | Close dialogs and panels. |

@@ -34,6 +34,8 @@ The manual route still works: `cp .env.example .env`, edit `DATABASE_URL`, then 
 - **Filters** — text, priority, type, label.
 - **Fractional indexing** — `orderIndex: Float`; a reorder updates exactly one row (`src/lib/ordering.ts`), with an automatic column re-space if float precision runs out.
 
+- **To-dos:** a personal checklist outside projects, available everywhere: top-bar icon (desktop), floating button (phone), `T` key, ⌘K and `/todos`.
+
 ## Documentation and MCP
 
 - **In-app docs:** open **Help & docs** in the sidebar (or `/docs`). Short pages cover every feature; the Markdown sources live in `src/content/docs/`, and the page order is the `DOCS` list in `src/lib/docs-shared.ts`.
