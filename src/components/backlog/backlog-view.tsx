@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, FileUp, GripVertical, MoreHorizontal, Play, Plus, Trash2 } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, ChevronRight, FileUp, Flag, GripVertical, MoreHorizontal, Play, Plus, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -39,13 +40,17 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
   const [starting, setStarting] = useState<SprintDTO | null>(null);
   const [completing, setCompleting] = useState<SprintDTO | null>(null);
   const [activeTask, setActiveTask] = useState<TaskDTO | null>(null);
+  // Multi-select: ids of ticked tasks. Dragging one of them moves the whole selection.
+  const [rawSelected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [dragIds, setDragIds] = useState<string[]>([]);
+  const lastPicked = useRef<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // After a drop the cache updates one tick later (React Query batches notifications). Until it does, show the task in its
   // new section so it is already there for the drop animation to land on, rather than snapping back to the old one.
-  const [hold, setHold] = useState<{ taskId: string; sprintId: string | null; source: TaskDTO[] } | null>(null);
+  const [hold, setHold] = useState<{ ids: ReadonlySet<string>; sprintId: string | null; source: TaskDTO[] } | null>(null);
   const shown = useMemo(
-    () => (hold && hold.source === board.tasks ? board.tasks.map((t) => (t.id === hold.taskId ? { ...t, sprintId: hold.sprintId } : t)) : board.tasks),
+    () => (hold && hold.source === board.tasks ? board.tasks.map((t) => (hold.ids.has(t.id) ? { ...t, sprintId: hold.sprintId } : t)) : board.tasks),
     [board.tasks, hold],
   );
   const tasks = useMemo(() => applyFilters(shown, filters), [shown, filters]);
@@ -57,22 +62,71 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
   const backlogTasks = sorted(tasks.filter((t) => !t.sprintId), true);
   const nextName = `Sprint ${board.sprints.length + 1}`;
 
+  // Visual order of every row on screen (sprints top to bottom, then backlog): shift-click selects a range in this order.
+  const visualIds = useMemo(() => [...live.flatMap((s) => sorted(tasks.filter((t) => t.sprintId === s.id))), ...backlogTasks].map((t) => t.id), [live, tasks, backlogTasks]);
+
+  // Ticks for tasks that no longer exist, or that the filters hide, don't count.
+  const selected = useMemo(() => {
+    const visible = new Set(visualIds);
+    const kept = [...rawSelected].filter((id) => visible.has(id));
+    return kept.length === rawSelected.size ? rawSelected : new Set(kept);
+  }, [rawSelected, visualIds]);
+
+  const toggleSelect = useCallback((task: TaskDTO, range: boolean) => {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      const anchor = lastPicked.current;
+      if (range && anchor && anchor !== task.id) {
+        const a = visualIds.indexOf(anchor);
+        const b = visualIds.indexOf(task.id);
+        if (a >= 0 && b >= 0) visualIds.slice(Math.min(a, b), Math.max(a, b) + 1).forEach((id) => next.add(id));
+      } else if (next.has(task.id)) next.delete(task.id);
+      else next.add(task.id);
+      return next;
+    });
+    lastPicked.current = task.id;
+  }, [visualIds]);
+
+  const setMany = useCallback((ids: string[], on: boolean) => setSelected((cur) => {
+    const next = new Set(cur);
+    ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    return next;
+  }), []);
+  const clearSelection = useCallback(() => { setSelected(new Set()); lastPicked.current = null; }, []);
+
+  // Esc clears the selection (unless a dialog or menu is open).
+  useEffect(() => {
+    if (selected.size === 0) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.querySelector("[role=dialog],[role=menu]")) clearSelection(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected.size, clearSelection]);
+
+  /** Moves several tasks to a sprint (or the backlog) with one confirmation toast. Tasks already there are skipped. */
+  const moveMany = useCallback((ids: string[], sprintId: string | null, announce = false) => {
+    const movers = board.tasks.filter((t) => ids.includes(t.id) && t.sprintId !== sprintId);
+    if (movers.length === 0) return 0;
+    movers.forEach((task) => update.mutate({ task, patch: { sprintId }, silent: true }));
+    setHold({ ids: new Set(movers.map((t) => t.id)), sprintId, source: board.tasks });
+    const where = sprintId ? board.sprints.find((s) => s.id === sprintId)?.name ?? "sprint" : "Backlog";
+    if (announce || movers.length > 1) toast.success(movers.length === 1 ? `${movers[0].key} → ${where}` : `Moved ${movers.length} tasks to ${where}`);
+    return movers.length;
+  }, [board.tasks, board.sprints, update]);
+
   const onDragEnd = ({ active, over }: DragEndEvent) => {
+    const ids = dragIds.length ? dragIds : [String(active.id)];
     setActiveTask(null);
-    const task = board.tasks.find((t) => t.id === active.id);
-    if (!task || !over) return;
+    setDragIds([]);
+    if (!over) return;
     const target = over.id === BACKLOG_ID ? null : String(over.id).replace("section:", "");
-    if (target !== task.sprintId) {
-      update.mutate({ task, patch: { sprintId: target }, silent: true });
-      setHold({ taskId: task.id, sprintId: target, source: board.tasks });
-    }
+    if (moveMany(ids, target) > 0 && ids.length > 1) clearSelection();
   };
 
   const updateTask = update.mutate;
   const moveTo = useCallback((task: TaskDTO, sprintId: string | null) => updateTask({ task, patch: { sprintId } }), [updateTask]);
   const onOpenTask = useCallback((t: TaskDTO) => openTask(t.key), [openTask]);
 
-  const rowProps = { sprints: live, onOpen: onOpenTask, onMove: moveTo, dndEnabled: !!isDesktop };
+  const rowProps = { sprints: live, onOpen: onOpenTask, onMove: moveTo, dndEnabled: !!isDesktop, selected, onToggleSelect: toggleSelect, onSelectMany: setMany };
 
   return (
     <div className="scroll-thin h-full overflow-y-auto">
@@ -84,8 +138,30 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
           {canAdd && <Button size="sm" variant="outline" onClick={() => setCreatingSprint(true)}><Plus />Create sprint</Button>}
         </div>
         <BoardToolbar filters={filters} onChange={setFilters} labels={labels} />
+        {selected.size > 0 ? (
+          <SelectionBar
+            count={selected.size}
+            sprints={live}
+            onMove={(sprintId) => { moveMany([...selected], sprintId, true); clearSelection(); }}
+            onPriority={(p) => {
+              const picked = board.tasks.filter((t) => selected.has(t.id) && t.priority !== p);
+              picked.forEach((task) => update.mutate({ task, patch: { priority: p }, silent: true }));
+              toast.success(`Set ${selected.size} task${selected.size === 1 ? "" : "s"} to ${PRIORITY_META[p].label}`);
+              clearSelection();
+            }}
+            onClear={clearSelection}
+          />
+        ) : (
+          <p className="hidden text-xs text-muted-foreground md:block">Tick tasks (or Ctrl/⌘-click, Shift-click for a range) to move several at once. Drag any ticked task to take them all.</p>
+        )}
 
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={(e) => { setHold(null); setActiveTask(board.tasks.find((t) => t.id === e.active.id) ?? null); }} onDragEnd={onDragEnd} onDragCancel={() => setActiveTask(null)}>
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={(e) => {
+          setHold(null);
+          const id = String(e.active.id);
+          setActiveTask(board.tasks.find((t) => t.id === id) ?? null);
+          // Dragging a ticked task takes every ticked task with it; dragging an unticked one moves just that task.
+          setDragIds(selected.has(id) ? visualIds.filter((v) => selected.has(v)) : [id]);
+        }} onDragEnd={onDragEnd} onDragCancel={() => { setActiveTask(null); setDragIds([]); }}>
           {live.map((s) => {
             const list = sorted(tasks.filter((t) => t.sprintId === s.id));
             return (
@@ -111,7 +187,18 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
 
           <Section id={BACKLOG_ID} title="Backlog" tasks={backlogTasks} subtitle="Unscheduled work, ordered by priority" quickAdd={canAdd ? { projectKey, sprintId: null, status: "BACKLOG" } : undefined} {...rowProps} />
 
-          <DragOverlay dropAnimation={null} zIndex={50}>{activeTask ? <div className="cursor-grabbing rounded-lg border bg-card px-3 py-2 text-sm shadow-2xl ring-1 ring-foreground/10"><span className="mr-2 font-mono text-xs text-muted-foreground">{activeTask.key}</span>{activeTask.title}</div> : null}</DragOverlay>
+          <DragOverlay dropAnimation={null} zIndex={50}>
+            {activeTask ? (
+              <div className="relative">
+                {dragIds.length > 1 && <div className="absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-lg border bg-card opacity-70" />}
+                <div className="relative flex cursor-grabbing items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-2xl ring-1 ring-foreground/10">
+                  <span className="font-mono text-xs text-muted-foreground">{activeTask.key}</span>
+                  <span className="truncate">{activeTask.title}</span>
+                  {dragIds.length > 1 && <span className="ml-auto shrink-0 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">{dragIds.length} tasks</span>}
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
 
         {completed.length > 0 && <CompletedSprints sprints={completed} tasks={board.tasks} onOpen={(t) => openTask(t.key)} />}
@@ -137,16 +224,28 @@ interface SectionProps {
   onOpen: (t: TaskDTO) => void;
   onMove: (t: TaskDTO, sprintId: string | null) => void;
   dndEnabled: boolean;
+  selected: ReadonlySet<string>;
+  onToggleSelect: (t: TaskDTO, range: boolean) => void;
+  onSelectMany: (ids: string[], on: boolean) => void;
 }
 
-function Section({ id, title, badge, subtitle, tasks, action, quickAdd, sprints, onOpen, onMove, dndEnabled }: SectionProps) {
+function Section({ id, title, badge, subtitle, tasks, action, quickAdd, sprints, onOpen, onMove, dndEnabled, selected, onToggleSelect, onSelectMany }: SectionProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [collapsed, setCollapsed] = useState(false);
   const points = tasks.reduce((n, t) => n + (t.estimate ?? 0), 0);
+  const picked = tasks.filter((t) => selected.has(t.id)).length;
   return (
     <section ref={setNodeRef} className={cn("rounded-xl border bg-muted/20", isOver && "border-foreground/40 bg-muted/50")}>
       <header className="flex flex-wrap items-center gap-2 px-3 py-2.5">
         <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? "Expand" : "Collapse"} className="text-muted-foreground">{collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</button>
+        {tasks.length > 0 && (
+          <Checkbox
+            checked={picked === tasks.length ? true : picked > 0 ? "indeterminate" : false}
+            onCheckedChange={() => onSelectMany(tasks.map((t) => t.id), picked !== tasks.length)}
+            aria-label={`Select all tasks in ${title}`}
+            className="size-4"
+          />
+        )}
         <h2 className="text-sm font-semibold">{title}</h2>
         {badge}
         <span className="text-xs text-muted-foreground">{tasks.length} task{tasks.length === 1 ? "" : "s"}{points > 0 && ` · ${points} pts`}</span>
@@ -156,7 +255,7 @@ function Section({ id, title, badge, subtitle, tasks, action, quickAdd, sprints,
       {!collapsed && (
         <>
           <ul className="divide-y border-t">
-            {tasks.map((t) => <Row key={t.id} task={t} sprints={sprints} onOpen={onOpen} onMove={onMove} dndEnabled={dndEnabled} />)}
+            {tasks.map((t) => <Row key={t.id} task={t} sprints={sprints} onOpen={onOpen} onMove={onMove} dndEnabled={dndEnabled} selected={selected.has(t.id)} anySelected={selected.size > 0} onToggleSelect={onToggleSelect} />)}
             {tasks.length === 0 && <li className="px-4 py-5 text-center text-sm text-muted-foreground">{dndEnabled ? (quickAdd ? "Drag tasks here or add one below" : "Drag tasks here") : "No tasks yet"}</li>}
           </ul>
           {quickAdd && <QuickAdd {...quickAdd} />}
@@ -166,16 +265,17 @@ function Section({ id, title, badge, subtitle, tasks, action, quickAdd, sprints,
   );
 }
 
-const Row = memo(function Row({ task, sprints, onOpen, onMove, dndEnabled }: { task: TaskDTO; sprints: SprintDTO[]; onOpen: (t: TaskDTO) => void; onMove: (t: TaskDTO, sprintId: string | null) => void; dndEnabled: boolean }) {
+const Row = memo(function Row({ task, sprints, onOpen, onMove, dndEnabled, selected, anySelected, onToggleSelect }: { task: TaskDTO; sprints: SprintDTO[]; onOpen: (t: TaskDTO) => void; onMove: (t: TaskDTO, sprintId: string | null) => void; dndEnabled: boolean; selected: boolean; anySelected: boolean; onToggleSelect: (t: TaskDTO, range: boolean) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: !dndEnabled });
   const { update, remove } = useTaskActions();
   const confirm = useConfirm();
   const done = task.status === "DONE";
   return (
-    <li ref={setNodeRef} className={cn("group flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40", isDragging && "opacity-40")}>
+    <li ref={setNodeRef} data-selected={selected || undefined} className={cn("group flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40", selected && "bg-primary/10 hover:bg-primary/15", isDragging && "opacity-40")}>
+      <Checkbox checked={selected} onCheckedChange={() => onToggleSelect(task, false)} onClick={(e) => { if (e.shiftKey) { e.preventDefault(); onToggleSelect(task, true); } }} aria-label={`Select ${task.key}`} className={cn("size-4 shrink-0 transition-opacity", !selected && !anySelected && "opacity-30 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-60")} />
       {dndEnabled && <span {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground"><GripVertical className="size-4" /></span>}
       <TypeIcon type={task.type} />
-      <button onClick={() => onOpen(task)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+      <button onClick={(e) => { if (e.shiftKey || e.metaKey || e.ctrlKey) onToggleSelect(task, e.shiftKey); else onOpen(task); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <span className="shrink-0 font-mono text-xs text-muted-foreground">{task.key}</span>
         <span className={cn("truncate", done && "text-muted-foreground line-through")}>{task.title}</span>
         <span className="hidden gap-1 md:flex">{task.labels.slice(0, 2).map((l) => <LabelChip key={l} label={l} />)}</span>
@@ -212,6 +312,28 @@ const Row = memo(function Row({ task, sprints, onOpen, onMove, dndEnabled }: { t
     </li>
   );
 });
+
+function SelectionBar({ count, sprints, onMove, onPriority, onClear }: { count: number; sprints: SprintDTO[]; onMove: (sprintId: string | null) => void; onPriority: (p: (typeof PRIORITIES)[number]) => void; onClear: () => void }) {
+  return (
+    <div role="toolbar" aria-label="Selected tasks" className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2 shadow-lg">
+      <span className="text-sm font-medium">{count} selected</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button size="sm" variant="outline"><ArrowRightLeft />Move to…</Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuItem onSelect={() => onMove(null)}>Backlog</DropdownMenuItem>
+          {sprints.map((s) => <DropdownMenuItem key={s.id} onSelect={() => onMove(s.id)}>{s.name}</DropdownMenuItem>)}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button size="sm" variant="outline"><Flag />Priority</Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-44">
+          {PRIORITIES.map((p) => <DropdownMenuItem key={p} onSelect={() => onPriority(p)}>{PRIORITY_META[p].label}</DropdownMenuItem>)}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button size="sm" variant="ghost" className="ml-auto" onClick={onClear}><X />Clear</Button>
+    </div>
+  );
+}
 
 function QuickAdd({ projectKey, sprintId, status }: { projectKey: string; sprintId: string | null; status: "TODO" | "BACKLOG" }) {
   const qc = useQueryClient();

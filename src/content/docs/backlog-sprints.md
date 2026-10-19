@@ -16,6 +16,16 @@ Choose **Create sprint** and enter:
 
 Drag tasks from the backlog into the sprint, or set the **Sprint** field on a task. The sprint header totals the points so you can see whether you are over-committing.
 
+## Select and move several tasks
+
+You don't have to move tasks one at a time.
+
+- **Tick** the checkbox at the start of a row. The checkbox in a section header selects every task in that section.
+- **Range:** click one task's checkbox, then **Shift-click** another to select everything between them.
+- **Ctrl/⌘-click** a task's title to add or remove it without opening it.
+
+When something is selected, a bar appears at the top with **Move to…** (Backlog or any sprint), **Priority**, and **Clear**. On a phone this bar is how you move tasks in bulk. On a computer you can also **drag any ticked task** and the whole selection moves with it, shown as "3 tasks" while you drag. Dragging a task that isn't ticked moves just that one. `Esc` clears the selection.
+
 ## Starting a sprint
 
 Click **Start sprint**. The sprint becomes **Active** and its tasks appear in *To Do* on the [Board](/docs/board).
