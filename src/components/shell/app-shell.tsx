@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
-import { ChevronRight, Download, ArrowLeft, ListChecks, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
+import { ChevronRight, Download, ArrowLeft, Bell, ListChecks, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ProjectDTO } from "@/lib/types";
 import { UiProvider, useUi } from "@/components/ui-state";
 import { CreateTaskDialog } from "@/components/task/create-task-dialog";
+import { NotificationsDialog } from "@/components/notifications/notifications-dialog";
+import { syncPushSubscription } from "@/lib/push-client";
 import { TodoSheet } from "@/components/todos/todo-sheet";
 import { useOpenTodoCount } from "@/lib/todos";
 import { TaskDetailSheet } from "@/components/task/task-detail-sheet";
@@ -38,7 +40,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
   const projects = useMemo(() => applyProjectFlags(serverProjects, flags), [serverProjects, flags]);
   const active = useMemo(() => projects.filter((p) => !p.archived), [projects]); // archived projects are hidden from navigation
   useEffect(() => reconcileProjectFlags(serverProjects), [serverProjects]);
-  const { openCreateTask, setPaletteOpen, setTodoOpen } = useUi();
+  const { openCreateTask, setPaletteOpen, setTodoOpen, setNotificationsOpen } = useUi();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
@@ -68,6 +70,9 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
   }, [openCreateTask, setTodoOpen, pathname]);
 
   const projectKey = /^\/projects\/([^/]+)/.exec(pathname)?.[1];
+
+  // If this device already allowed notifications, keep the server's record of it (and the timezone) current.
+  useEffect(() => { void syncPushSubscription(); }, []);
 
   // Remember which boards/backlogs you open (powers the Recent flyout).
   useEffect(() => initRecent(), []);
@@ -100,6 +105,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
               <Search /> Search…<kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px]">⌘K</kbd>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setPaletteOpen(true)}><Search /></Button>
+            <Button variant="ghost" size="icon" className="max-sm:hidden" aria-label="Notifications" title="Notifications" onClick={() => setNotificationsOpen(true)}><Bell /></Button>
             <TodoButton />
             <RefreshButton />
             <InstallButton />
@@ -114,6 +120,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
       <CreateTaskDialog projects={active} />
       <CreateProjectDialog />
       <InstallDialog />
+      <NotificationsDialog />
       <TodoSheet />
       <TodoFab />
       <TaskDetailSheet />

@@ -131,3 +131,10 @@ export const updateTodoSchema = z.object({
   dueDate: z.string().datetime().nullable().optional(),
   priority: todoPriorityEnum.optional(),
 });
+
+export const pushSubscribeSchema = z.object({
+  endpoint: z.string().url().max(2000),
+  keys: z.object({ p256dh: z.string().min(1).max(500), auth: z.string().min(1).max(200) }),
+  timezone: z.string().min(1).max(64).default("UTC"),
+});
+export const pushUnsubscribeSchema = z.object({ endpoint: z.string().url().max(2000) });

@@ -15,6 +15,7 @@ Click the **install** button in the top bar (it disappears once installed) or ch
 
 - A dedicated window and icon.
 - A friendly offline page if the connection drops.
+- [Push notifications](/docs/notifications) for due, overdue and urgent work.
 
 > **Note** DevBoard always loads live data from the server, so tasks are not available offline. The offline page only explains what happened and lets you retry.
 

@@ -20,6 +20,7 @@ export const DOCS: DocMeta[] = [
   { group: "Features", slug: "dashboard", title: "Dashboard & all-projects board", description: "See everything across projects." },
   { group: "Features", slug: "todos", title: "To-dos", description: "A quick personal checklist, one tap away." },
   { group: "Features", slug: "search-shortcuts", title: "Search, Recent & shortcuts", description: "Move around quickly." },
+  { group: "Features", slug: "notifications", title: "Notifications", description: "Push reminders for due, overdue and urgent work." },
   { group: "Features", slug: "install-app", title: "Install as an app", description: "Use DevBoard on macOS, Windows, Android and iOS." },
   { group: "MCP for AI", slug: "mcp-overview", title: "MCP overview", description: "Let AI assistants manage your tasks." },
   { group: "MCP for AI", slug: "mcp-setup", title: "Connect a client", description: "Claude, Gemini, Cursor and other MCP clients." },

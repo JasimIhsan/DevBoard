@@ -182,3 +182,23 @@ model Todo {
 
   @@index([done, createdAt])
 }
+
+/// A browser/device that agreed to receive push notifications.
+model PushSubscription {
+  id         String   @id @default(uuid())
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  timezone   String   @default("UTC") // IANA name from the device, so "today" means the user's today
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+}
+
+/// What has already been sent, so cron runs (any frequency) never repeat a notification.
+model NotificationLog {
+  key    String   @id // e.g. "digest:2026-10-19", "stale:CORE"
+  sentAt DateTime @default(now())
+
+  @@index([sentAt])
+}
