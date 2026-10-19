@@ -17,7 +17,7 @@ Each notification is sent once, so you never get the same reminder twice. Nothin
 
 ## Turn them on
 
-1. Open the **Notifications** dialog: the bell in the top bar, **Notifications** in the sidebar, or `⌘K` and search "notifications".
+1. Open the **Notifications** dialog: the bell in the top bar (it shows a dot until notifications are on, including on phones), **Notifications** in the sidebar, or `⌘K` and search "notifications". The first time you visit, a small message also offers a **Turn on** button.
 2. Choose **Turn on notifications** and allow them when your browser asks.
 3. Choose **Send a test**. A notification should appear within a few seconds.
 
@@ -31,7 +31,8 @@ Apple only allows web notifications for **installed** apps (iOS 16.4 or later). 
 
 | You see | What to do |
 | --- | --- |
-| "Notifications are blocked" | Allow notifications for this site in your browser settings, then reload. |
+| "Notifications are blocked" | The browser won't ask again until you allow them. **Chrome on Android:** tap the lock icon next to the address, then *Permissions → Notifications → Allow* (or Chrome menu → *Settings → Site settings → Notifications*). Then reload. |
+| No permission pop-up appears | Browsers only show it right after you tap **Turn on notifications**, and Chrome may silently block it if you have dismissed prompts before. Check the site settings above. |
 | "The background service worker isn't running" | Service workers are off in `npm run dev`. Use the deployed or production build in a normal browser. |
 | "The server has no push keys" | Add the VAPID keys below and redeploy. |
 

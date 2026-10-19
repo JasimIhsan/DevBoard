@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,8 @@ import type { ProjectDTO } from "@/lib/types";
 import { UiProvider, useUi } from "@/components/ui-state";
 import { CreateTaskDialog } from "@/components/task/create-task-dialog";
 import { NotificationsDialog } from "@/components/notifications/notifications-dialog";
-import { syncPushSubscription } from "@/lib/push-client";
+import { syncPushSubscription, usePush } from "@/lib/push-client";
+import { toast } from "sonner";
 import { TodoSheet } from "@/components/todos/todo-sheet";
 import { useOpenTodoCount } from "@/lib/todos";
 import { TaskDetailSheet } from "@/components/task/task-detail-sheet";
@@ -40,7 +41,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
   const projects = useMemo(() => applyProjectFlags(serverProjects, flags), [serverProjects, flags]);
   const active = useMemo(() => projects.filter((p) => !p.archived), [projects]); // archived projects are hidden from navigation
   useEffect(() => reconcileProjectFlags(serverProjects), [serverProjects]);
-  const { openCreateTask, setPaletteOpen, setTodoOpen, setNotificationsOpen } = useUi();
+  const { openCreateTask, setPaletteOpen, setTodoOpen } = useUi();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
@@ -105,7 +106,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
               <Search /> Search…<kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px]">⌘K</kbd>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setPaletteOpen(true)}><Search /></Button>
-            <Button variant="ghost" size="icon" className="max-sm:hidden" aria-label="Notifications" title="Notifications" onClick={() => setNotificationsOpen(true)}><Bell /></Button>
+            <NotificationsButton />
             <TodoButton />
             <RefreshButton />
             <InstallButton />
@@ -121,6 +122,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
       <CreateProjectDialog />
       <InstallDialog />
       <NotificationsDialog />
+      <NotificationsNudge />
       <TodoSheet />
       <TodoFab />
       <TaskDetailSheet />
@@ -170,6 +172,39 @@ function Breadcrumbs({ pathname, projects }: { pathname: string; projects: Proje
       ))}
     </nav>
   );
+}
+
+const NUDGE_KEY = "devboard:notifications-nudged";
+
+/** Bell in the top bar. Until notifications are on it also shows on phones and carries a dot, so it is hard to miss. */
+function NotificationsButton() {
+  const { setNotificationsOpen } = useUi();
+  const { state } = usePush();
+  const off = state.kind === "off";
+  return (
+    <Button variant="ghost" size="icon" className={off ? "relative" : "max-sm:hidden"} aria-label={off ? "Turn on notifications" : "Notifications"} title="Notifications" onClick={() => setNotificationsOpen(true)}>
+      <Bell />
+      {off && <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-background" />}
+    </Button>
+  );
+}
+
+/**
+ * Browsers only show the permission prompt in response to a tap, so we can't ask on load. Instead, once per device,
+ * offer a toast whose button opens the dialog (where the next tap triggers the real prompt).
+ */
+function NotificationsNudge() {
+  const { setNotificationsOpen } = useUi();
+  const { state } = usePush();
+  const offered = useRef(false);
+  useEffect(() => {
+    if (state.kind !== "off" || offered.current) return;
+    offered.current = true;
+    try { if (localStorage.getItem(NUDGE_KEY)) return; localStorage.setItem(NUDGE_KEY, "1"); } catch { return; }
+    const t = setTimeout(() => toast("Get reminders for due and urgent work", { description: "Turn on notifications on this device.", duration: 12000, action: { label: "Turn on", onClick: () => setNotificationsOpen(true) } }), 2500);
+    return () => clearTimeout(t);
+  }, [state.kind, setNotificationsOpen]);
+  return null;
 }
 
 /** Opens the to-do drawer; shows how many are still open. */

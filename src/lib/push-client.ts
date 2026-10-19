@@ -49,12 +49,25 @@ async function readState(): Promise<PushState> {
 export function usePush() {
   const [state, setState] = useState<PushState>({ kind: "loading" });
   const refresh = useCallback(async () => setState(await readState().catch(() => ({ kind: "unsupported" }) as PushState)), []);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void refresh(); }, [refresh]);
+  // On a first visit the service worker is still registering; look again a few times before concluding it isn't there.
+  useEffect(() => {
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = async () => {
+      const next = await readState().catch(() => ({ kind: "unsupported" }) as PushState);
+      setState(next);
+      if (next.kind === "no-worker" && process.env.NODE_ENV === "production" && tries++ < 4) timer = setTimeout(check, 2500);
+    };
+    void check();
+    return () => clearTimeout(timer);
+  }, []);
 
   const enable = async () => {
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") { await refresh(); throw new Error("Permission wasn't granted."); }
+    if (permission !== "granted") {
+      await refresh();
+      throw new Error(permission === "denied" ? "Notifications are blocked for this site. Allow them in your browser's site settings." : "You closed the prompt without choosing. Tap again and choose Allow.");
+    }
     const reg = await registration();
     if (!reg) throw new Error("The service worker isn't running.");
     const { publicKey } = await api<{ publicKey: string | null }>("/api/push/config");

@@ -54,7 +54,17 @@ function Body() {
           : <Notice>This browser doesn&apos;t support push notifications. Try Chrome, Edge, Firefox or Safari 16.4+.</Notice>;
       case "no-worker": return <Notice>The background service worker isn&apos;t running. It is off in <code>npm run dev</code> and in some embedded browsers. Use the deployed or production build in a regular browser.</Notice>;
       case "no-keys": return <Notice>The server has no push keys yet. Set <code>VAPID_PUBLIC_KEY</code> and <code>VAPID_PRIVATE_KEY</code>, then redeploy.</Notice>;
-      case "denied": return <Notice>Notifications are blocked for this site. Allow them in your browser&apos;s site settings, then reload.</Notice>;
+      case "denied":
+        return (
+          <Notice>
+            <b>Notifications are blocked for this site.</b> Your browser won&apos;t ask again until you allow them.
+            <span className="mt-1 block text-muted-foreground">
+              {pwa.platform === "android"
+                ? "Chrome on Android: tap the lock (or ⓘ) icon next to the address, then Permissions → Notifications → Allow. Or Chrome menu → Settings → Site settings → Notifications → find this site → Allow. Then reload."
+                : "Click the lock icon next to the address, set Notifications to Allow, then reload."}
+            </span>
+          </Notice>
+        );
       default: return null;
     }
   })();
