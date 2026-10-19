@@ -26,7 +26,31 @@ The drawer slides in over whatever you are doing. Use the expand icon in its hea
 2. Type and press `Enter` (or tap **+**).
 3. Keep typing. The box stays focused, so you can add several in a row.
 
-To give it a due date, tap the calendar icon in the box before you add it. You can also add or change a date later from the to-do itself.
+Before you add it you can also set:
+
+- **Priority:** tap the flag icon and choose **High**, **Medium** or **Low**. New to-dos are **Low** unless you change it.
+- **Due date:** tap the calendar icon.
+
+Both can be changed later from the to-do itself.
+
+## Priority
+
+Every to-do has a priority. Open to-dos are sorted with **High** first, then **Medium**, then **Low**, newest first within each. The circle is outlined red for High and amber for Medium. Tap the flag label under a to-do to change it.
+
+## Filter by date
+
+The row of buttons above the list narrows what you see:
+
+| Button | Shows |
+| --- | --- |
+| **Today** | To-dos due today. The number is how many are still open. |
+| **All** | Everything. |
+| **Overdue** | Open to-dos whose date has passed. |
+| **Upcoming** | To-dos due after today. |
+| **No date** | To-dos without a due date. |
+| **Pick date** | To-dos due on a day you choose. |
+
+> **Tip** While **Today** (or a picked day) is selected, a new to-do without a date is given that day, so it stays in view.
 
 ## Manage to-dos
 
@@ -34,6 +58,6 @@ To give it a due date, tap the calendar icon in the box before you add it. You c
 - **Edit:** tap the text, change it and press `Enter`. `Esc` cancels.
 - **Due date:** tap the date to change it, or **Add date** to set one. Overdue dates turn red and dates within two days turn amber.
 - **Delete:** the trash icon (always visible on phones, shown on hover on desktop).
-- **Clear completed:** open **Completed** and choose **Clear** to delete every finished to-do.
+- **Clear completed:** with **All** selected, open **Completed** and choose **Clear** to delete every finished to-do.
 
 > **Note** There are no accounts, so to-dos are shared by every device that opens this app, just like *Recent*. They sync when you open the app or refresh.

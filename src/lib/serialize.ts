@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import type { ProjectDTO, SprintDTO, TaskDTO, TaskDetailDTO, TodoDTO } from "./types";
+import type { ProjectDTO, SprintDTO, TaskDTO, TaskDetailDTO, TodoDTO, TodoPriority } from "./types";
 
 export const taskInclude = {
   project: { select: { key: true } },
@@ -67,6 +67,6 @@ export function serializeProject(p: { id: string; name: string; key: string; des
   return { id: p.id, name: p.name, key: p.key, description: p.description, color: p.color, archived: !!p.archivedAt, starred: !!p.starredAt, starredAt: iso(p.starredAt) };
 }
 
-export function serializeTodo(t: { id: string; title: string; done: boolean; doneAt: Date | null; dueDate: Date | null; createdAt: Date }): TodoDTO {
-  return { id: t.id, title: t.title, done: t.done, doneAt: iso(t.doneAt), dueDate: iso(t.dueDate), createdAt: t.createdAt.toISOString() };
+export function serializeTodo(t: { id: string; title: string; done: boolean; doneAt: Date | null; dueDate: Date | null; priority: TodoPriority; createdAt: Date }): TodoDTO {
+  return { id: t.id, title: t.title, done: t.done, doneAt: iso(t.doneAt), dueDate: iso(t.dueDate), priority: t.priority, createdAt: t.createdAt.toISOString() };
 }

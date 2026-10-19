@@ -80,11 +80,14 @@ export interface ProjectBoardDTO {
   tasks: TaskDTO[];
 }
 
+export type TodoPriority = "LOW" | "MEDIUM" | "HIGH";
+
 export interface TodoDTO {
   id: string;
   title: string;
   done: boolean;
   doneAt: string | null;
   dueDate: string | null;
+  priority: TodoPriority;
   createdAt: string;
 }

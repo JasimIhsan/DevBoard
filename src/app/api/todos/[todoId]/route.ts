@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ todoId: string }> };
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const parsed = updateTodoSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return badRequest(parsed.error);
-  const { title, done, dueDate } = parsed.data;
+  const { title, done, dueDate, priority } = parsed.data;
   const id = (await params).todoId;
   const existing = await db.todo.findUnique({ where: { id }, select: { done: true, doneAt: true } });
   if (!existing) return notFound("To-do not found");
@@ -18,6 +18,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     where: { id },
     data: {
       ...(title !== undefined && { title }),
+      ...(priority !== undefined && { priority }),
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       // Completing stamps the time once; re-sending done:true keeps the original stamp (idempotent).
       ...(done !== undefined && { done, doneAt: done ? (existing.done ? existing.doneAt : new Date()) : null }),

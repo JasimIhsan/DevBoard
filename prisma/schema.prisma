@@ -163,6 +163,12 @@ model RecentItem {
   @@index([visitedAt])
 }
 
+enum TodoPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 /// Personal to-do list: quick checklist items that live outside projects and sprints.
 model Todo {
   id        String    @id @default(uuid())
@@ -170,6 +176,7 @@ model Todo {
   done      Boolean   @default(false)
   doneAt    DateTime?
   dueDate   DateTime?
+  priority  TodoPriority @default(LOW)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

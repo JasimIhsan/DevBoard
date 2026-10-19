@@ -4,7 +4,9 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, guardedGet } from "./client";
-import type { TodoDTO } from "./types";
+import type { TodoDTO, TodoPriority } from "./types";
+
+export const PRIORITY_RANK: Record<TodoPriority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };
 
 export const todosKey = ["todos"] as const;
 
@@ -17,7 +19,7 @@ export function useTodos() {
   const { open, done } = useMemo(() => {
     const all = q.data ?? [];
     return {
-      open: all.filter((t) => !t.done).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      open: all.filter((t) => !t.done).sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || b.createdAt.localeCompare(a.createdAt)),
       done: all.filter((t) => t.done).sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")),
     };
   }, [q.data]);
@@ -44,10 +46,10 @@ export function useTodoActions() {
   const settle = () => qc.invalidateQueries({ queryKey: todosKey });
 
   const add = useMutation({
-    mutationFn: (v: { title: string; dueDate?: string | null }) => api<TodoDTO>("/api/todos", { method: "POST", json: v }),
+    mutationFn: (v: { title: string; dueDate?: string | null; priority?: TodoPriority }) => api<TodoDTO>("/api/todos", { method: "POST", json: v }),
     onMutate: async (v) => {
       const prev = await snapshot();
-      const tmp: TodoDTO = { id: `tmp-${crypto.randomUUID()}`, title: v.title, done: false, doneAt: null, dueDate: v.dueDate ?? null, createdAt: new Date().toISOString() };
+      const tmp: TodoDTO = { id: `tmp-${crypto.randomUUID()}`, title: v.title, done: false, doneAt: null, dueDate: v.dueDate ?? null, priority: v.priority ?? "LOW", createdAt: new Date().toISOString() };
       edit((l) => [tmp, ...l]);
       return { prev, tmpId: tmp.id };
     },
@@ -57,7 +59,7 @@ export function useTodoActions() {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; title?: string; done?: boolean; dueDate?: string | null }) => api<TodoDTO>(`/api/todos/${id}`, { method: "PATCH", json: patch }),
+    mutationFn: ({ id, ...patch }: { id: string; title?: string; done?: boolean; dueDate?: string | null; priority?: TodoPriority }) => api<TodoDTO>(`/api/todos/${id}`, { method: "PATCH", json: patch }),
     onMutate: async ({ id, ...patch }) => {
       const prev = await snapshot();
       edit((l) => l.map((t) => (t.id === id ? { ...t, ...patch, ...(patch.done !== undefined && { doneAt: patch.done ? new Date().toISOString() : null }) } : t)));
@@ -91,10 +93,11 @@ export function useTodoActions() {
   });
 
   return {
-    add: (title: string, dueDate?: string | null) => add.mutate({ title, dueDate }),
+    add: (title: string, dueDate?: string | null, priority?: TodoPriority) => add.mutate({ title, dueDate, priority }),
     toggle: (t: TodoDTO) => update.mutate({ id: t.id, done: !t.done }),
     rename: (t: TodoDTO, title: string) => update.mutate({ id: t.id, title }),
     setDue: (t: TodoDTO, dueDate: string | null) => update.mutate({ id: t.id, dueDate }),
+    setPriority: (t: TodoDTO, priority: TodoPriority) => update.mutate({ id: t.id, priority }),
     remove: (t: TodoDTO) => remove.mutate(t.id),
     clearCompleted: () => clearCompleted.mutate(),
   };
