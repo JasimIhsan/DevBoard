@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
-import { ChevronRight, Download, ListChecks, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
+import { ChevronRight, Download, ArrowLeft, ListChecks, Menu, Moon, Plus, RefreshCw, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { ProjectDTO } from "@/lib/types";
@@ -177,16 +177,38 @@ function TodoButton() {
   );
 }
 
-/** Phones: a button on every page, so adding a to-do is always one tap away. Bottom-left; the board's "New task" button owns bottom-right. */
+const LAST_PAGE_KEY = "devboard:page-before-todos";
+
+/**
+ * Phones: a big button on every page. On a normal page it opens the full To-dos page; on the To-dos page the same
+ * spot becomes a "back" button that returns to where you were. Bottom-left; the board's "New task" button owns bottom-right.
+ */
 function TodoFab() {
-  const { todoOpen, setTodoOpen } = useUi();
+  const router = useRouter();
+  const pathname = usePathname();
   const count = useOpenTodoCount();
-  const onTodosPage = usePathname() === "/todos";
-  if (todoOpen || onTodosPage) return null; // the full page is already open
+  const onTodos = pathname === "/todos";
+
+  // Remember the last page that wasn't the to-do list (kept in sessionStorage so a reload on /todos still goes back).
+  useEffect(() => {
+    if (onTodos) return;
+    try { sessionStorage.setItem(LAST_PAGE_KEY, pathname + window.location.search); } catch {}
+  }, [pathname, onTodos]);
+
+  const back = () => {
+    let to = "/";
+    try { to = sessionStorage.getItem(LAST_PAGE_KEY) || "/"; } catch {}
+    router.push(to);
+  };
+
   return (
-    <Button size="icon-lg" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 size-12 rounded-full shadow-lg sm:hidden" aria-label={`To-dos${count ? `, ${count} open` : ""}`} onClick={() => setTodoOpen(true)}>
-      <ListChecks className="size-5" />
-      {count > 0 && <span className="absolute -top-1 -right-1 grid min-w-5 place-items-center rounded-full border-2 border-background bg-foreground px-1 text-[10px] leading-4 font-semibold text-background">{count > 99 ? "99+" : count}</span>}
+    <Button
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-30 size-16 rounded-full shadow-lg sm:hidden"
+      aria-label={onTodos ? "Back to previous page" : `To-dos${count ? `, ${count} open` : ""}`}
+      onClick={onTodos ? back : () => router.push("/todos")}
+    >
+      {onTodos ? <ArrowLeft className="size-7" /> : <ListChecks className="size-7" />}
+      {!onTodos && count > 0 && <span className="absolute -top-1 -right-1 grid min-w-6 place-items-center rounded-full border-2 border-background bg-foreground px-1 text-xs leading-5 font-semibold text-background">{count > 99 ? "99+" : count}</span>}
     </Button>
   );
 }
