@@ -1,26 +1,29 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { format, isBefore, isToday, startOfDay } from "date-fns";
+import { format, isBefore, isToday, isTomorrow, startOfDay } from "date-fns";
 import { CalendarDays, CalendarPlus, ChevronDown, Flag, ListChecks, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { DueChip } from "@/components/task/badges";
+import { DatePicker, dayToIso, isoToDay, todayIso } from "./date-picker";
 import { useConfirm } from "@/components/confirm-dialog";
 import { isPendingTodo, useTodoActions, useTodos } from "@/lib/todos";
 import type { TodoDTO, TodoPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const toIso = (day: string) => new Date(`${day}T12:00:00`).toISOString();
-const toDay = (iso: string) => format(new Date(iso), "yyyy-MM-dd");
+const toIso = dayToIso;
+const toDay = isoToDay;
 
 const PRIORITIES: { value: TodoPriority; label: string; text: string }[] = [
   { value: "HIGH", label: "High", text: "text-red-400" },
   { value: "MEDIUM", label: "Medium", text: "text-amber-400" },
   { value: "LOW", label: "Low", text: "text-muted-foreground" },
 ];
+/** "Today", "Tomorrow", or "Wed, Oct 21". */
+const dueLabel = (iso: string) => (isToday(new Date(iso)) ? "Today" : isTomorrow(new Date(iso)) ? "Tomorrow" : format(new Date(iso), "EEE, MMM d"));
 const priorityMeta = (p: TodoPriority) => PRIORITIES.find((x) => x.value === p)!;
 
 type Filter = { kind: "all" | "today" | "overdue" | "upcoming" | "nodate" } | { kind: "date"; day: string };
@@ -36,27 +39,6 @@ function matches(t: TodoDTO, f: Filter): boolean {
     case "upcoming": return !isToday(d) && !isBefore(d, startOfDay(new Date()));
     case "date": return toDay(t.dueDate) === f.day;
   }
-}
-
-/** A native date input hidden behind a button: opens the platform's own picker on phones and desktops. */
-function DatePick({ value, onChange, label, children, className }: { value: string | null; onChange: (iso: string | null) => void; label: string; children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  return (
-    <span className={cn("relative inline-flex", className)}>
-      <button type="button" aria-label={label} onClick={() => { try { ref.current?.showPicker(); } catch { ref.current?.focus(); } }} className="inline-flex items-center">
-        {children}
-      </button>
-      <input
-        ref={ref}
-        type="date"
-        tabIndex={-1}
-        aria-hidden
-        value={value ? toDay(value) : ""}
-        onChange={(e) => onChange(e.target.value ? toIso(e.target.value) : null)}
-        className="pointer-events-none absolute inset-0 size-full opacity-0"
-      />
-    </span>
-  );
 }
 
 function PriorityMenu({ value, onChange, children, label }: { value: TodoPriority; onChange: (p: TodoPriority) => void; children: React.ReactNode; label: string }) {
@@ -122,18 +104,18 @@ function TodoRow({ todo }: { todo: TodoDTO }) {
           )}
           {todo.dueDate ? (
             <span className="inline-flex items-center gap-1">
-              <DatePick value={todo.dueDate} onChange={(d) => setDue(todo, d)} label="Change due date">
+              <DatePicker value={todo.dueDate} onChange={(d) => setDue(todo, d)} label="Change due date" align="start">
                 <DueChip date={todo.dueDate} done={todo.done} />
-              </DatePick>
+              </DatePicker>
               {!todo.done && (
                 <button type="button" aria-label="Clear due date" onClick={() => setDue(todo, null)} className="text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-60"><X className="size-3" /></button>
               )}
             </span>
           ) : (
             !todo.done && (
-              <DatePick value={null} onChange={(d) => d && setDue(todo, d)} label="Set due date" className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-lg:opacity-60">
+              <DatePicker value={null} onChange={(d) => d && setDue(todo, d)} label="Set due date" align="start" className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-60">
                 <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"><CalendarPlus className="size-3" />Add date</span>
-              </DatePick>
+              </DatePicker>
             )
           )}
         </div>
@@ -159,7 +141,8 @@ export function TodoPanel({ autoFocus, className }: { autoFocus?: boolean; class
   const { add, clearCompleted } = useTodoActions();
   const confirm = useConfirm();
   const [title, setTitle] = useState("");
-  const [due, setDue] = useState<string | null>(null);
+  // New to-dos default to today (or the day you're filtering by). Once you pick or clear a date, your choice wins.
+  const [pickedDue, setPickedDue] = useState<{ value: string | null } | null>(null);
   const [priority, setPriority] = useState<TodoPriority>("LOW");
   const [filter, setFilter] = useState<Filter>({ kind: "all" });
   const [showDone, setShowDone] = useState(false);
@@ -174,16 +157,15 @@ export function TodoPanel({ autoFocus, className }: { autoFocus?: boolean; class
   const shownOpen = useMemo(() => open.filter((t) => matches(t, filter)), [open, filter]);
   const shownDone = useMemo(() => done.filter((t) => matches(t, filter)), [done, filter]);
   const pr = priorityMeta(priority);
+  const due = pickedDue ? pickedDue.value : filter.kind === "date" ? toIso(filter.day) : todayIso();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
-    // Adding while looking at a day should land in that day, otherwise the new to-do would vanish from view.
-    const day = due ?? (filter.kind === "today" ? toIso(format(new Date(), "yyyy-MM-dd")) : filter.kind === "date" ? toIso(filter.day) : null);
-    add(t, day, priority);
+    add(t, due, priority);
     setTitle("");
-    setDue(null);
+    setPickedDue(null);
     setPriority("LOW");
     inputRef.current?.focus(); // keep typing: add several in a row
   };
@@ -211,24 +193,24 @@ export function TodoPanel({ autoFocus, className }: { autoFocus?: boolean; class
             <PriorityMenu value={priority} onChange={setPriority} label={`Priority: ${pr.label}. Change priority`}>
               <Flag className={cn("size-4", pr.text)} />
             </PriorityMenu>
-            <DatePick value={due} onChange={setDue} label="Set due date">
+            <DatePicker value={due} onChange={(d) => setPickedDue({ value: d })} label="Set due date" allowClear clearLabel="No date">
               <CalendarPlus className={cn("size-4", due ? "text-foreground" : "text-muted-foreground")} />
-            </DatePick>
+            </DatePicker>
           </div>
         </div>
         <Button type="submit" size="icon" className="size-10 shrink-0" aria-label="Add to-do" disabled={!title.trim()}><Plus /></Button>
       </form>
-      {(due || priority !== "LOW") && (
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-          {priority !== "LOW" && <span className={cn("inline-flex items-center gap-1", pr.text)}><Flag className="size-3" />{pr.label} priority</span>}
-          {due && (
-            <span className="inline-flex items-center gap-1">
-              Due {format(new Date(due), "EEE, MMM d")}
-              <button type="button" aria-label="Remove due date" onClick={() => setDue(null)} className="hover:text-foreground"><X className="size-3" /></button>
-            </span>
-          )}
-        </p>
-      )}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+        {priority !== "LOW" && <span className={cn("inline-flex items-center gap-1", pr.text)}><Flag className="size-3" />{pr.label} priority</span>}
+        {due ? (
+          <span className="inline-flex items-center gap-1">
+            Due {dueLabel(due)}
+            <button type="button" aria-label="Remove due date" onClick={() => setPickedDue({ value: null })} className="hover:text-foreground"><X className="size-3" /></button>
+          </span>
+        ) : (
+          <span>No due date</span>
+        )}
+      </p>
 
       {!empty && (
         <div role="group" aria-label="Filter by date" className="scroll-thin -mx-1 mt-3 flex items-center gap-1.5 overflow-x-auto px-1 pb-1">
@@ -239,11 +221,11 @@ export function TodoPanel({ autoFocus, className }: { autoFocus?: boolean; class
           {pick("overdue", "Overdue", counts.overdue)}
           {pick("upcoming", "Upcoming", counts.upcoming)}
           {pick("nodate", "No date", counts.nodate)}
-          <DatePick value={filter.kind === "date" ? toIso(filter.day) : null} onChange={(d) => setFilter(d ? { kind: "date", day: toDay(d) } : { kind: "all" })} label="Pick a date to filter by">
+          <DatePicker value={filter.kind === "date" ? toIso(filter.day) : null} onChange={(d) => setFilter(d ? { kind: "date", day: toDay(d) } : { kind: "all" })} label="Pick a date to filter by" allowClear clearLabel="Show all" align="start">
             <span className={chip(filter.kind === "date")}>
               <CalendarPlus className="size-3.5" />{filter.kind === "date" ? format(new Date(`${filter.day}T12:00:00`), "MMM d") : "Pick date"}
             </span>
-          </DatePick>
+          </DatePicker>
         </div>
       )}
 

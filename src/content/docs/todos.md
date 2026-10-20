@@ -29,9 +29,9 @@ The drawer slides in over whatever you are doing. Use the expand icon in its hea
 Before you add it you can also set:
 
 - **Priority:** tap the flag icon and choose **High**, **Medium** or **Low**. New to-dos are **Low** unless you change it.
-- **Due date:** tap the calendar icon.
+- **Due date:** new to-dos are due **today** by default. Tap the calendar icon to pick another day, or the **×** beside "Due Today" for no date.
 
-Both can be changed later from the to-do itself.
+The date picker has quick buttons (**Today**, **Tomorrow**, **Next week**, **No date**) above a calendar. Priority and date can both be changed later from the to-do itself.
 
 ## Priority
 
@@ -50,7 +50,7 @@ The row of buttons above the list narrows what you see:
 | **No date** | To-dos without a due date. |
 | **Pick date** | To-dos due on a day you choose. |
 
-> **Tip** While **Today** (or a picked day) is selected, a new to-do without a date is given that day, so it stays in view.
+> **Tip** When you filter by a picked day, new to-dos are given that day by default, so they stay in view.
 
 ## Manage to-dos
 
