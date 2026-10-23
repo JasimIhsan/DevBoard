@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import { Archive, ListTodo, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -27,8 +28,8 @@ export function KanbanBoard({ projectKey, initialData }: { projectKey: string; i
   const isDesktop = useIsDesktop();
   const [filters, setFilters] = useState(emptyFilters);
   const [dialog, setDialog] = useState<ColumnDialogState>(null);
-  // The backlog opens as a side sheet (`archived` = scrolled to the Archived section) instead of leaving the board.
-  const [backlog, setBacklog] = useState<{ archived: boolean } | null>(null);
+  // The backlog opens as a simple side sheet (add, list, move) instead of leaving the board.
+  const [backlogOpen, setBacklogOpen] = useState(false);
 
   const board = data ?? initialData;
   const readOnly = board.project.archived; // archived project: viewable, but no new tasks or columns
@@ -71,8 +72,8 @@ export function KanbanBoard({ projectKey, initialData }: { projectKey: string; i
           <p className="text-sm text-muted-foreground">{onBoard.length} task{onBoard.length === 1 ? "" : "s"} · {done} done{points > 0 && ` · ${pointsDone}/${points} pts`}</p>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {!readOnly && <Button size="sm" variant="outline" onClick={() => setDialog({ mode: "add" })}><Plus />Add column</Button>}
-            <Button size="sm" variant="outline" onClick={() => setBacklog({ archived: false })}><ListTodo />Backlog{backlogCount > 0 && <span className="text-muted-foreground">{backlogCount}</span>}</Button>
-            {archivedCount > 0 && <Button size="sm" variant="ghost" onClick={() => setBacklog({ archived: true })}><Archive />Archived<span className="text-muted-foreground">{archivedCount}</span></Button>}
+            <Button size="sm" variant="outline" onClick={() => setBacklogOpen(true)}><ListTodo />Backlog{backlogCount > 0 && <span className="text-muted-foreground">{backlogCount}</span>}</Button>
+            {archivedCount > 0 && <Button asChild size="sm" variant="ghost"><Link href={`/projects/${projectKey}/backlog#archived`}><Archive />Archived<span className="text-muted-foreground">{archivedCount}</span></Link></Button>}
           </div>
         </div>
         {onBoard.length > 0 && <Progress value={pct} className="h-1.5" />}
@@ -81,7 +82,7 @@ export function KanbanBoard({ projectKey, initialData }: { projectKey: string; i
 
       {onBoard.length === 0 && (
         <p className="shrink-0 border-b bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
-          The board is empty. Add tasks in the <button type="button" className="underline" onClick={() => setBacklog({ archived: false })}>backlog</button>, then move them here{backlogCount > 0 && ` (${backlogCount} waiting)`}.
+          The board is empty. Add tasks in the <button type="button" className="underline" onClick={() => setBacklogOpen(true)}>backlog</button>, then move them here{backlogCount > 0 && ` (${backlogCount} waiting)`}.
         </p>
       )}
 
@@ -103,7 +104,7 @@ export function KanbanBoard({ projectKey, initialData }: { projectKey: string; i
         )}
       </div>
 
-      <BacklogSheet projectKey={projectKey} board={board} open={!!backlog} onOpenChange={(v) => !v && setBacklog(null)} focusArchived={!!backlog?.archived} />
+      <BacklogSheet projectKey={projectKey} board={board} open={backlogOpen} onOpenChange={setBacklogOpen} />
       <ColumnDialog projectKey={projectKey} columns={columns} tasks={board.tasks} state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
