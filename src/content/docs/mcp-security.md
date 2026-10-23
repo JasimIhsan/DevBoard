@@ -42,7 +42,7 @@ MCP_ALLOWED_ORIGINS="https://my-tool.example.com,http://localhost:5173"
 
 ## Destructive actions
 
-Deleting tasks, sprints and projects requires an explicit confirmation argument, and assistants are instructed to delete only when you ask. Treat any connected assistant like a teammate with full access:
+Deleting tasks, columns and projects requires an explicit confirmation argument, and assistants are instructed to delete only when you ask. Treat any connected assistant like a teammate with full access:
 
 - Review what it plans to do before approving tool calls, especially deletes.
 - Use **archive** instead of delete when you want to be able to undo.

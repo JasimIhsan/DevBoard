@@ -1,8 +1,8 @@
 DevBoard includes a built-in **Model Context Protocol (MCP) server**. MCP is an open standard that lets AI assistants such as Claude, Gemini and Cursor use external tools. Once connected, you can ask an assistant things like:
 
 - "What should I work on next in CORE?"
-- "Break this feature into tasks and add them to the next sprint."
-- "Summarise this sprint's progress for my standup."
+- "Break this feature into tasks and add them to the backlog."
+- "Summarise what is on the board for my standup."
 - "Pick up the next task, implement it, and move it to review."
 
 ## What the AI can do
@@ -10,7 +10,7 @@ DevBoard includes a built-in **Model Context Protocol (MCP) server**. MCP is an 
 | Area | Examples |
 | --- | --- |
 | **Read** | List projects, search and filter tasks, read a task with its comments, get a workspace summary. |
-| **Plan** | Create tasks in bulk, create, start and complete sprints. |
+| **Plan** | Create tasks in bulk, move them from the backlog to the board, add board columns. |
 | **Work** | Start a task, add comments and subtasks, submit for review, mark done. |
 | **Manage** | Create, rename, star, archive or delete projects. |
 
@@ -18,7 +18,7 @@ The full list is in [Tools, resources & prompts](/docs/mcp-tools).
 
 ## How it works
 
-The MCP server is a thin layer over DevBoard's own API, so every rule you see in the app applies to AI too: archived projects are read-only, only one sprint can be active, and invalid input is rejected with a clear message.
+The MCP server is a thin layer over DevBoard's own API, so every rule you see in the app applies to AI too: archived projects are read-only, a task can only be archived once it is done, and invalid input is rejected with a clear message.
 
 There are two ways to connect:
 
@@ -29,7 +29,7 @@ There are two ways to connect:
 
 ## Safe by design
 
-- Destructive tools (`delete_task`, `delete_project`, `delete_sprint`) need an explicit confirmation argument.
+- Destructive tools (`delete_task`, `delete_column`, `delete_project`) need an explicit confirmation argument.
 - An optional **API key** protects the HTTP endpoint. See [MCP security](/docs/mcp-security).
 - Tool results use small, structured summaries so assistants don't waste context.
 

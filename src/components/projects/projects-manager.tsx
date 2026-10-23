@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { differenceInCalendarDays, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { Archive, ArchiveRestore, CalendarDays, ChevronDown, ChevronRight, Columns3, ListTodo, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, ChevronRight, Columns3, ListTodo, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -38,7 +38,7 @@ export function ProjectsManager({ projects }: { projects: ProjectOverview[] }) {
   const live = useMemo(() => shown.filter((p) => !p.project.archived), [shown]);
   const archivedList = useMemo(() => shown.filter((p) => p.project.archived), [shown]);
   const activeAll = useMemo(() => projects.filter((p) => !p.project.archived), [projects]);
-  const totals = useMemo(() => ({ tasks: activeAll.reduce((n, p) => n + p.total, 0), sprints: activeAll.filter((p) => p.sprint).length }), [activeAll]);
+  const totals = useMemo(() => ({ tasks: activeAll.reduce((n, p) => n + p.total, 0), backlog: activeAll.reduce((n, p) => n + p.backlog, 0) }), [activeAll]);
   const archivedOpen = showArchived || needle.length > 0; // searching reveals matches inside the archive too
 
   return (
@@ -47,7 +47,7 @@ export function ProjectsManager({ projects }: { projects: ProjectOverview[] }) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="mr-auto">
             <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
-            <p className="text-sm text-muted-foreground">{activeAll.length} project{activeAll.length === 1 ? "" : "s"} · {totals.tasks} tasks · {totals.sprints} active sprint{totals.sprints === 1 ? "" : "s"}</p>
+            <p className="text-sm text-muted-foreground">{activeAll.length} project{activeAll.length === 1 ? "" : "s"} · {totals.tasks} tasks · {totals.backlog} in backlog</p>
           </div>
           <div className="relative min-w-40 flex-1 sm:max-w-64 sm:flex-none">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -87,9 +87,8 @@ export function ProjectsManager({ projects }: { projects: ProjectOverview[] }) {
 }
 
 function ProjectCard({ p, onEdit, onDelete, onArchive, onRestore }: { p: ProjectOverview; onEdit: () => void; onDelete: () => void; onArchive: () => void; onRestore: () => void }) {
-  const { project, sprint } = p;
+  const { project } = p;
   const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
-  const daysLeft = sprint?.endDate ? differenceInCalendarDays(new Date(sprint.endDate), new Date()) : null;
   return (
     <li className={cn("rounded-xl border bg-card/50 p-4", project.archived && "opacity-75")}>
       <div className="flex items-start gap-3">
@@ -132,11 +131,11 @@ function ProjectCard({ p, onEdit, onDelete, onArchive, onRestore }: { p: Project
           <p className="mt-2 text-xs text-muted-foreground">{p.inFlight} in flight · {p.backlog} in backlog · {p.points} pts</p>
         </div>
         <div className="space-y-1 text-xs text-muted-foreground">
-          <p className="flex items-center gap-1.5">
-            <CalendarDays className="size-3.5" />
-            {sprint ? <><span className="text-foreground">{sprint.name}</span> active{daysLeft !== null && <span className={daysLeft < 0 ? "text-red-400" : undefined}> · {daysLeft < 0 ? `${-daysLeft}d overdue` : `${daysLeft}d left`}</span>}</> : <>No active sprint · <Link className="underline" href={`/projects/${project.key}/backlog`}>plan one</Link></>}
+          <p className="flex flex-wrap gap-x-3 gap-y-0.5">
+            {p.columns.length === 0 ? "No columns" : p.columns.map((c) => <span key={c.id}>{c.name} <b className="font-semibold text-foreground">{c.count}</b></span>)}
+            <span>Backlog <b className="font-semibold text-foreground">{p.backlog}</b></span>
           </p>
-          <p>{p.sprintCount} sprint{p.sprintCount === 1 ? "" : "s"} · {p.lastActivity ? `last activity ${formatDistanceToNow(new Date(p.lastActivity), { addSuffix: true })}` : "no activity yet"}</p>
+          <p>{p.archived > 0 ? `${p.archived} archived · ` : ""}{p.lastActivity ? `last activity ${formatDistanceToNow(new Date(p.lastActivity), { addSuffix: true })}` : "no activity yet"}</p>
         </div>
       </div>
     </li>
@@ -200,7 +199,7 @@ function EditDialog({ project, onClose }: { project: ProjectDTO; onClose: () => 
   );
 }
 
-/** Deleting is permanent and cascades to sprints and tasks, so it needs the project key typed to confirm. */
+/** Deleting is permanent and cascades to its columns and tasks, so it needs the project key typed to confirm. */
 function DeleteDialog({ p, onClose }: { p: ProjectOverview; onClose: () => void }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -222,7 +221,7 @@ function DeleteDialog({ p, onClose }: { p: ProjectOverview; onClose: () => void 
         <DialogHeader>
           <DialogTitle>Delete {project.name}?</DialogTitle>
           <DialogDescription>
-            This permanently deletes the project with its <b>{p.total} task{p.total === 1 ? "" : "s"}</b> and <b>{p.sprintCount} sprint{p.sprintCount === 1 ? "" : "s"}</b>. It can&apos;t be undone.
+            This permanently deletes the project with its <b>{p.total} task{p.total === 1 ? "" : "s"}</b> (including archived ones) and its board columns. It can&apos;t be undone.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
@@ -251,7 +250,7 @@ function ArchiveDialog({ p, onClose }: { p: ProjectOverview; onClose: () => void
         <DialogHeader>
           <DialogTitle>Archive {project.name}?</DialogTitle>
           <DialogDescription>
-            It disappears from the sidebar, dashboard, all-projects board, search and Recent. Its {p.total} task{p.total === 1 ? "" : "s"} and {p.sprintCount} sprint{p.sprintCount === 1 ? "" : "s"} are kept, and you can restore it any time from the Archived list below.
+            It disappears from the sidebar, dashboard, all-projects board, search and Recent. Its {p.total} task{p.total === 1 ? "" : "s"} are kept, and you can restore it any time from the Archived list below.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

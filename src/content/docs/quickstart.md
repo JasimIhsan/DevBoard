@@ -4,29 +4,27 @@ Follow these steps to go from an empty workspace to a finished task.
 
 Click **+** next to *Projects* in the sidebar. Give it a name and a short **key** such as `CORE`. The key is permanent because every task key is built from it (`CORE-1`, `CORE-2`, …).
 
+The project starts with a board that has three columns: **To Do**, **In Progress** and **Done**.
+
 ## 2. Add tasks to the backlog
 
-Open the project and choose **Backlog**. Use the quick-add row to type a title and press Enter. You can also press `C` anywhere to open the full *New task* dialog.
+Open the project and choose **Backlog**. Type a title in the box at the bottom and press `Enter`. You can also press `C` anywhere to open the full *New task* dialog.
 
 New tasks start in the **Backlog**: ideas and future work that aren't scheduled yet.
 
-## 3. Plan a sprint
+## 3. Move tasks to the board
 
-In the Backlog, choose **Create sprint**, give it a name and an optional goal, then move tasks into it. A sprint is a short, fixed period of work, usually one to two weeks.
+When you are ready to start something, click **Move to board** on it. It lands in **To Do** on the board. To move several at once, tick them and use the bar that appears.
 
-## 4. Start the sprint
+## 4. Work the board
 
-Click **Start sprint**. The tasks in it appear on the **Board** in the *To Do* column.
+Open the **Board** and drag a card from **To Do** to **In Progress**, then **Done**. Click a card to open its detail panel for subtasks, comments and the git branch name.
 
-> **Note** A project can have only one active sprint at a time.
+> **Tip** Need another stage, like Review? Click **Add column** on the board. See [Kanban board](/docs/board).
 
-## 5. Work the board
+## 5. Archive finished work
 
-Drag a card from **To Do** to **In Progress**, then **In Review**, then **Done**. Click a card to open its detail panel for subtasks, comments and the git branch name.
-
-## 6. Complete the sprint
-
-When the time is up, click **Complete sprint**. Finished tasks stay in the sprint as history. Anything unfinished can move back to the backlog or into the next sprint.
+When a task is done and you want it off the board, archive it: hover the card and click the archive icon, or use **Archive all** in the Done column's **⋯** menu. Archived tasks are listed below the backlog and can be restored.
 
 ## What next?
 

@@ -15,7 +15,7 @@ function authorised(req: NextRequest): boolean {
 }
 
 /**
- * Sends every reminder that is due (due today, overdue, urgent, sprint ending, quiet projects).
+ * Sends every reminder that is due (due today, overdue, urgent, quiet projects).
  * Safe to call at any frequency: what was already sent is remembered. Vercel Cron calls it with
  * `Authorization: Bearer $CRON_SECRET`; any other scheduler can do the same.
  * With the secret you also get details and `?dry=1` (preview, sends nothing) / `?force=1` (ignore quiet hours and history).

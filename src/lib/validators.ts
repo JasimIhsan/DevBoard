@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const statusEnum = z.enum(["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]);
+export const statusEnum = z.enum(["BACKLOG", "TODO", "IN_PROGRESS", "DONE"]);
+export const categoryEnum = z.enum(["TODO", "IN_PROGRESS", "DONE"]);
 export const priorityEnum = z.enum(["P0", "P1", "P2", "P3"]);
 export const typeEnum = z.enum(["FEATURE", "BUG", "CHORE", "SPIKE"]);
 
@@ -16,10 +17,10 @@ export const createTaskSchema = z.object({
   projectKey: z.string().trim().min(1),
   title: z.string().trim().min(1, "Title is required").max(200),
   description: z.string().max(20000).optional(),
-  status: statusEnum.optional(),
   priority: priorityEnum.optional(),
   type: typeEnum.optional(),
-  sprintId: z.string().uuid().nullable().optional(),
+  /** Board column to put the task in. Omit or null for the backlog (the default). */
+  columnId: z.string().uuid().nullable().optional(),
   branchName: z.string().trim().max(200).nullable().optional(),
   labels: labels.optional(),
   estimate: z.number().int().min(0).max(100).nullable().optional(),
@@ -31,8 +32,10 @@ export const updateTaskSchema = z.object({
   description: z.string().max(20000).optional(),
   priority: priorityEnum.optional(),
   type: typeEnum.optional(),
-  status: statusEnum.optional(),
-  sprintId: z.string().uuid().nullable().optional(),
+  /** Move to a board column, or null to send the task back to the backlog. */
+  columnId: z.string().uuid().nullable().optional(),
+  /** Archive (true) or restore (false). Only done tasks can be archived. */
+  archived: z.boolean().optional(),
   branchName: z.string().trim().max(200).nullable().optional(),
   prUrl: optionalUrl,
   labels: labels.optional(),
@@ -41,7 +44,7 @@ export const updateTaskSchema = z.object({
 });
 
 export const reorderSchema = z.object({
-  newStatus: statusEnum,
+  columnId: z.string().uuid(),
   prevTaskId: z.string().nullable().optional(),
   nextTaskId: z.string().nullable().optional(),
 });
@@ -76,22 +79,15 @@ export const recentPutSchema = z
   )
   .max(60);
 
-export const createSprintSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  goal: z.string().trim().max(300).optional(),
-  startDate: z.string().datetime().nullable().optional(),
-  endDate: z.string().datetime().nullable().optional(),
+export const createColumnSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(40),
+  category: categoryEnum.default("IN_PROGRESS"),
 });
-
-export const sprintActionSchema = z.object({
-  sprintId: z.string().uuid(),
-  action: z.enum(["start", "complete", "update", "delete"]),
-  // For "complete": where unfinished tasks go. null = backlog.
-  moveUnfinishedTo: z.string().uuid().nullable().optional(),
-  name: z.string().trim().min(1).max(80).optional(),
-  goal: z.string().trim().max(300).nullable().optional(),
-  startDate: z.string().datetime().nullable().optional(),
-  endDate: z.string().datetime().nullable().optional(),
+export const updateColumnSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(40).optional(),
+  category: categoryEnum.optional(),
+  /** Shift the column one place left or right on the board. */
+  direction: z.enum(["left", "right"]).optional(),
 });
 
 export const subtaskSchema = z.object({ title: z.string().trim().min(1).max(200) });
@@ -109,9 +105,9 @@ export const importTasksSchema = z.object({
   projectKey: z.string().trim().min(1),
   tasks: z
     .array(
-      createTaskSchema.omit({ projectKey: true, sprintId: true }).extend({
-        /** Sprint name. Matched case-insensitively against existing sprints; otherwise a draft sprint is created. */
-        sprint: z.string().trim().max(80).optional(),
+      createTaskSchema.omit({ projectKey: true, columnId: true }).extend({
+        /** Board column name, matched case-insensitively. Empty means the backlog. */
+        column: z.string().trim().max(40).optional(),
       }),
     )
     .min(1)

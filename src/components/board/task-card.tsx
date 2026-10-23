@@ -3,7 +3,7 @@
 import { forwardRef, memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, ArrowRightLeft, CheckSquare, GitBranch } from "lucide-react";
+import { AlertTriangle, Archive, ArrowRightLeft, CheckSquare, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import type { TaskDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,10 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   task: TaskDTO;
   onOpen?: (task: TaskDTO) => void;
   onQuickMove?: (task: TaskDTO) => void;
+  /** Shown on done cards: hides the task from the board (it stays Done and is listed under the backlog). */
+  onArchive?: (task: TaskDTO) => void;
+  /** Show the task's column name (used where lanes are categories, e.g. the all-projects board). */
+  showColumn?: boolean;
   dragging?: boolean;
   overlay?: boolean;
   /** Project color, shown as a left edge so cards from different projects are tellable apart (central board). */
@@ -21,13 +25,13 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 /** Presentational card — used in columns, the drag overlay and the mobile list. */
 export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function TaskCard(
-  { task, onOpen, onQuickMove, dragging, overlay, accent, className, style, ...rest },
+  { task, onOpen, onQuickMove, onArchive, showColumn, dragging, overlay, accent, className, style, ...rest },
   ref,
 ) {
   const done = task.status === "DONE";
-  // Pushed to review/done with unchecked subtasks: flag it so unfinished work doesn't slip through.
+  // Pushed to a review column or to done with unchecked subtasks: flag it so unfinished work doesn't slip through.
   const open = task.subtasksTotal - task.subtasksDone;
-  const incomplete = (task.status === "IN_REVIEW" || done) && open > 0;
+  const incomplete = (done || /review/i.test(task.columnName ?? "")) && open > 0;
   return (
     <div
       ref={ref}
@@ -51,6 +55,18 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
         <TypeIcon type={task.type} />
         <span className="font-mono text-[11px] text-muted-foreground">{task.key}</span>
         <PriorityBadge priority={task.priority} className="ml-auto" />
+        {onArchive && !overlay && (
+          <button
+            type="button"
+            aria-label={`Archive ${task.key}`}
+            title="Archive (hide from the board)"
+            onClick={(e) => { e.stopPropagation(); onArchive(task); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="-my-1 grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-70"
+          >
+            <Archive className="size-3.5" />
+          </button>
+        )}
         {onQuickMove && (
           <button
             type="button"
@@ -63,6 +79,7 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
           </button>
         )}
       </div>
+      {showColumn && task.columnName && <p className="mt-1 text-[10px] tracking-wide text-muted-foreground uppercase">{task.columnName}</p>}
       <p className={cn("mt-1.5 line-clamp-2 text-sm leading-snug", done && "text-muted-foreground line-through decoration-muted-foreground/50")}>{task.title}</p>
 
       {task.labels.length > 0 && (
@@ -98,7 +115,7 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
 }));
 
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onOpen }: { task: TaskDTO; onOpen: (t: TaskDTO) => void }) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onOpen, onArchive }: { task: TaskDTO; onOpen: (t: TaskDTO) => void; onArchive?: (t: TaskDTO) => void }) {
   // transition: null → neighbours move instantly as you drag over them; no easing, no settle.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: task.id, data: { type: "task" }, transition: null });
   return (
@@ -106,6 +123,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onOpen }:
       ref={setNodeRef}
       task={task}
       onOpen={onOpen}
+      onArchive={onArchive}
       dragging={isDragging}
       style={{ transform: CSS.Translate.toString(transform), touchAction: "manipulation" }}
       {...attributes}

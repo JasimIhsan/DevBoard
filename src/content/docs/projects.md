@@ -20,13 +20,13 @@ Archive a project when the work is finished but you want to keep the history.
 
 - It is hidden from the sidebar, dashboard, all-projects board, search and *Recent*.
 - Opening it directly shows an **Archived** banner. You can still read, edit and move existing tasks.
-- You **cannot** add tasks, create sprints or import CSV until you restore it.
+- You **cannot** add tasks, add columns or import CSV until you restore it.
 - Archiving removes the star. Restoring does not bring it back.
 
 Restore from the banner, or from the **Archived** section of the Projects page.
 
 ## Delete a project
 
-Deleting removes the project with all its tasks, sprints and comments. You must type the project key to confirm.
+Deleting removes the project with all its tasks (archived ones too), columns and comments. You must type the project key to confirm.
 
 > **Tip** If you are unsure, archive instead. Archiving is fully reversible; deleting is not.

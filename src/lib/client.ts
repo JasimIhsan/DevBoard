@@ -4,8 +4,8 @@ import { useCallback } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { calculateOrderIndex } from "./ordering";
-import { PRIORITY_META, STATUS_META } from "./constants";
-import type { ProjectBoardDTO, SprintDTO, TaskDetailDTO, TaskDTO, TaskStatus } from "./types";
+import { PRIORITY_META } from "./constants";
+import type { ColumnCategory, ColumnDTO, ProjectBoardDTO, TaskDetailDTO, TaskDTO } from "./types";
 import type { UpdateTaskInput } from "./validators";
 import { touchRecentProject } from "./recent";
 
@@ -115,23 +115,46 @@ const mergeTask = (b: ProjectBoardDTO, id: string, patch: Partial<TaskDTO>): Pro
 });
 
 /** One-line summary of a field change worth announcing; null for quiet edits (title, description, links). */
-function describeUpdate(t: TaskDTO, patch: UpdateTaskInput, sprints: SprintDTO[]): string | null {
-  if (patch.status !== undefined) return `${t.key} → ${STATUS_META[t.status].label}`;
+function describeUpdate(t: TaskDTO, patch: UpdateTaskInput): string | null {
+  if (patch.columnId !== undefined) return `${t.key} → ${t.columnName ?? "Backlog"}`;
+  if (patch.archived !== undefined) return patch.archived ? `${t.key} archived` : `${t.key} restored`;
   if (patch.priority !== undefined) return `${t.key} set to ${PRIORITY_META[t.priority].label}`;
-  if (patch.sprintId !== undefined) return `${t.key} moved to ${t.sprintId ? sprints.find((s) => s.id === t.sprintId)?.name ?? "sprint" : "Backlog"}`;
   if (patch.type !== undefined) return `${t.key} is now a ${t.type.toLowerCase()}`;
   return null;
 }
 
+/**
+ * What a task looks like right after `patch`, before the server answers: moving to a column re-labels the task with the
+ * column's category and name; archiving stamps archivedAt. Keeps every card and the detail panel in step instantly.
+ */
+function optimisticFields(task: TaskDTO, columns: ColumnDTO[], patch: UpdateTaskInput): Partial<TaskDTO> {
+  const { prUrl, archived, columnId, ...rest } = patch;
+  const out: Partial<TaskDTO> = { ...rest, ...(prUrl !== undefined ? { prUrl: prUrl || null } : {}) } as Partial<TaskDTO>;
+  if (columnId !== undefined) {
+    const col = columnId ? columns.find((c) => c.id === columnId) : null;
+    const status: TaskDTO["status"] = col ? col.category : "BACKLOG";
+    Object.assign(out, {
+      columnId: col?.id ?? null,
+      columnName: col?.name ?? null,
+      status,
+      completedAt: status === "DONE" ? task.completedAt ?? new Date().toISOString() : null,
+      ...(status !== "DONE" ? { archivedAt: null } : {}),
+    });
+  }
+  if (archived !== undefined) out.archivedAt = archived ? task.archivedAt ?? new Date().toISOString() : null;
+  return out;
+}
+
 export interface MoveVars {
   task: TaskDTO;
-  newStatus: TaskStatus;
+  /** Board column the card was dropped in. */
+  columnId: string;
   prevTaskId: string | null;
   nextTaskId: string | null;
 }
 
 /** Fields a move touches; used to roll back just this task, never the whole board. */
-const MOVE_FIELDS = ["status", "orderIndex", "completedAt"] as const;
+const MOVE_FIELDS = ["columnId", "columnName", "status", "orderIndex", "completedAt", "archivedAt"] as const;
 
 /** Board mutations: synchronous optimistic write → server → merge the server's answer → reconcile once idle. */
 export function useTaskActions() {
@@ -144,8 +167,8 @@ export function useTaskActions() {
 
   const reorder = useMutation({
     mutationKey: ["tasks"],
-    mutationFn: ({ task, newStatus, prevTaskId, nextTaskId }: MoveVars & { optimisticIndex: number }) =>
-      api<TaskDTO>(`/api/tasks/${task.id}/reorder`, { method: "PATCH", json: { newStatus, prevTaskId, nextTaskId } }),
+    mutationFn: ({ task, columnId, prevTaskId, nextTaskId }: MoveVars & { optimisticIndex: number }) =>
+      api<TaskDTO>(`/api/tasks/${task.id}/reorder`, { method: "PATCH", json: { columnId, prevTaskId, nextTaskId } }),
     onSuccess: (saved) => {
       patchBoard(qc, saved.projectKey, (b) => mergeTask(b, saved.id, saved));
       // No success toast: the card is already where you dropped it. Failures still announce themselves (onError).
@@ -156,7 +179,7 @@ export function useTaskActions() {
         ...b,
         tasks: b.tasks.map((t) => {
           // Only undo if the card still shows *this* move; a newer move owns it otherwise.
-          if (t.id !== v.task.id || t.status !== v.newStatus || t.orderIndex !== v.optimisticIndex) return t;
+          if (t.id !== v.task.id || t.columnId !== v.columnId || t.orderIndex !== v.optimisticIndex) return t;
           return { ...t, ...Object.fromEntries(MOVE_FIELDS.map((f) => [f, v.task[f]])) };
         }),
       }));
@@ -166,7 +189,7 @@ export function useTaskActions() {
   });
 
   function moveTask(vars: MoveVars) {
-    const { task, newStatus, prevTaskId, nextTaskId } = vars;
+    const { task, columnId, prevTaskId, nextTaskId } = vars;
     touchRecentProject(task.projectKey);
     const key = qk.board(task.projectKey);
     const board = qc.getQueryData<ProjectBoardDTO>(key);
@@ -177,11 +200,16 @@ export function useTaskActions() {
     const optimisticIndex = calculateOrderIndex(idx(prevTaskId), idx(nextTaskId));
     // `task` as the caller saw it is the rollback point; take the freshest copy from the cache if we have one.
     const before = board?.tasks.find((t) => t.id === task.id) ?? task;
+    const target = board?.columns.find((c) => c.id === columnId);
+    const status: TaskDTO["status"] = target ? target.category : before.status;
     patchBoard(qc, task.projectKey, (b) =>
       mergeTask(b, task.id, {
-        status: newStatus,
+        columnId,
+        columnName: target?.name ?? before.columnName,
+        status,
         orderIndex: optimisticIndex,
-        completedAt: newStatus === "DONE" ? new Date().toISOString() : null,
+        completedAt: status === "DONE" ? before.completedAt ?? new Date().toISOString() : null,
+        ...(status !== "DONE" ? { archivedAt: null } : {}),
       }),
     );
     reorder.mutate({ ...vars, task: before, optimisticIndex });
@@ -197,9 +225,9 @@ export function useTaskActions() {
       const key = qk.board(task.projectKey);
       await qc.cancelQueries({ queryKey: key }, { revert: false });
       await qc.cancelQueries({ queryKey: qk.task(task.key) }, { revert: false });
-      const prev = qc.getQueryData<ProjectBoardDTO>(key)?.tasks.find((t) => t.id === task.id);
-      const { prUrl, ...rest } = patch;
-      const optimistic = { ...rest, ...(prUrl !== undefined ? { prUrl: prUrl || null } : {}) } as Partial<TaskDTO>;
+      const cached = qc.getQueryData<ProjectBoardDTO>(key);
+      const prev = cached?.tasks.find((t) => t.id === task.id);
+      const optimistic = prev ? optimisticFields(prev, cached?.columns ?? [], patch) : ({} as Partial<TaskDTO>);
       patchBoard(qc, task.projectKey, (b) => mergeTask(b, task.id, optimistic));
       // The open detail panel reads this cache; without it a Select would flip back until the server replies.
       qc.setQueryData<TaskDetailDTO>(qk.task(task.key), (d) => d && { ...d, ...optimistic });
@@ -209,7 +237,7 @@ export function useTaskActions() {
       // Show the server's answer right away instead of waiting for the refetch below.
       patchBoard(qc, saved.projectKey, (b) => mergeTask(b, saved.id, saved));
       qc.setQueryData<TaskDetailDTO>(qk.task(saved.key), (d) => d && { ...d, ...saved, subtasks: d.subtasks, comments: d.comments, activities: d.activities });
-      const note = describeUpdate(saved, patch, qc.getQueryData<ProjectBoardDTO>(qk.board(saved.projectKey))?.sprints ?? []);
+      const note = describeUpdate(saved, patch);
       if (note && !silent) toast.success(note);
     },
     onError: (e, { task }, ctx) => {
@@ -243,26 +271,35 @@ export function useTaskActions() {
   return { moveTask, update, remove };
 }
 
-export function useSprintActions(projectKey: string) {
+/** Board column management for one project: add, rename, recolour, reorder, delete, and archive everything done. */
+export function useColumnActions(projectKey: string) {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: qk.board(projectKey) });
-  const call = (json: unknown) => api<SprintDTO & { sprint?: SprintDTO; movedTasks?: number }>(`/api/projects/${projectKey}/sprints`, { method: "PATCH", json });
+  const base = `/api/projects/${projectKey}/columns`;
   const onError = (e: Error) => toast.error(e.message);
-
   return {
     create: useMutation({
-      mutationFn: (json: { name: string; goal?: string }) => api<SprintDTO>(`/api/projects/${projectKey}/sprints`, { method: "POST", json }),
-      onSuccess: (s) => toast.success(`Created ${s.name}`),
+      mutationFn: (json: { name: string; category: ColumnCategory }) => api<ColumnDTO>(base, { method: "POST", json }),
+      onSuccess: (c) => toast.success(`Added column ${c.name}`),
       onError,
       onSettled: refresh,
     }),
-    act: useMutation({
-      mutationFn: call,
+    update: useMutation({
+      mutationFn: ({ id, ...json }: { id: string; name?: string; category?: ColumnCategory; direction?: "left" | "right" }) => api<ColumnDTO>(`${base}/${id}`, { method: "PATCH", json }),
       onError,
-      onSettled: () => {
-        refresh();
-        qc.invalidateQueries({ queryKey: ["board"] });
-      },
+      onSettled: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: ({ id, moveTo }: { id: string; moveTo?: string }) => api<{ moved: number }>(`${base}/${id}${moveTo ? `?moveTo=${moveTo}` : ""}`, { method: "DELETE" }),
+      onSuccess: (r) => toast.success(r.moved ? `Column deleted · moved ${r.moved} task${r.moved === 1 ? "" : "s"}` : "Column deleted"),
+      onError,
+      onSettled: refresh,
+    }),
+    archiveAll: useMutation({
+      mutationFn: (id: string) => api<{ archived: number }>(`${base}/${id}/archive`, { method: "POST" }),
+      onSuccess: (r) => toast.success(r.archived ? `Archived ${r.archived} task${r.archived === 1 ? "" : "s"}` : "Nothing to archive"),
+      onError,
+      onSettled: refresh,
     }),
   };
 }

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { badRequest, findTask, notFound } from "@/lib/api-utils";
 import { serializeTask, serializeTaskDetail, taskDetailInclude, taskInclude } from "@/lib/serialize";
-import { nextOrderIndex } from "@/lib/tasks";
+import { nextOrderIndex, statusFor } from "@/lib/tasks";
 import { updateTaskSchema } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!existing) return notFound("Task not found");
 
   const data: Prisma.TaskUncheckedUpdateInput = {};
-  const log: { kind: "STATUS_CHANGED" | "PRIORITY_CHANGED" | "SPRINT_CHANGED" | "UPDATED"; detail: string }[] = [];
+  const log: { kind: "STATUS_CHANGED" | "PRIORITY_CHANGED" | "UPDATED"; detail: string }[] = [];
 
   if (input.title !== undefined) data.title = input.title;
   if (input.description !== undefined) data.description = input.description;
@@ -45,35 +45,35 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     log.push({ kind: "PRIORITY_CHANGED", detail: `Priority ${existing.priority} → ${input.priority}` });
   }
 
+  // Moving between the backlog and board columns. `status` follows the column's category.
   let status = existing.status;
-  let sprintId = existing.sprintId;
-
-  if (input.sprintId !== undefined && input.sprintId !== existing.sprintId) {
-    if (input.sprintId) {
-      const sprint = await db.sprint.findFirst({ where: { id: input.sprintId, projectId: existing.projectId } });
-      if (!sprint) return badRequest(new Error("sprint"));
-      sprintId = sprint.id;
-      if (status === "BACKLOG" && sprint.status === "ACTIVE") status = "TODO";
-      log.push({ kind: "SPRINT_CHANGED", detail: `Added to ${sprint.name}` });
-    } else {
-      sprintId = null;
-      status = "BACKLOG";
-      log.push({ kind: "SPRINT_CHANGED", detail: "Moved to backlog" });
-    }
-    data.sprintId = sprintId;
-  }
-
-  if (input.status !== undefined && input.status !== existing.status) status = input.status;
-  if (status !== existing.status) {
+  let columnId = existing.columnId;
+  let archivedAt = existing.archivedAt;
+  if (input.columnId !== undefined && input.columnId !== existing.columnId) {
+    const column = input.columnId ? await db.boardColumn.findFirst({ where: { id: input.columnId, projectId: existing.projectId } }) : null;
+    if (input.columnId && !column) return NextResponse.json({ error: "That column doesn't exist in this project." }, { status: 400 });
+    columnId = column?.id ?? null;
+    status = statusFor(column);
+    data.columnId = columnId;
     data.status = status;
-    data.completedAt = status === "DONE" ? new Date() : null;
-    log.push({ kind: "STATUS_CHANGED", detail: `Status ${existing.status} → ${status}` });
+    data.completedAt = status === "DONE" ? (existing.status === "DONE" ? existing.completedAt : new Date()) : null;
+    if (status !== "DONE" && archivedAt) { archivedAt = null; data.archivedAt = null; } // only done tasks stay archived
+    log.push({ kind: "STATUS_CHANGED", detail: `Moved ${existing.column?.name ?? "Backlog"} → ${column?.name ?? "Backlog"}` });
   }
 
-  const laneChanged = status !== existing.status || sprintId !== existing.sprintId;
+  if (input.archived !== undefined) {
+    if (input.archived) {
+      if (status !== "DONE") return NextResponse.json({ error: "Only done tasks can be archived. Move it to a Done column first." }, { status: 409 });
+      if (!archivedAt) { archivedAt = new Date(); data.archivedAt = archivedAt; log.push({ kind: "UPDATED", detail: "Archived" }); }
+    } else if (archivedAt) {
+      archivedAt = null;
+      data.archivedAt = null;
+      log.push({ kind: "UPDATED", detail: "Restored from archive" });
+    }
+  }
 
   const task = await db.$transaction(async (tx) => {
-    if (laneChanged) data.orderIndex = await nextOrderIndex(tx, { projectId: existing.projectId, sprintId, status });
+    if (columnId !== existing.columnId) data.orderIndex = await nextOrderIndex(tx, { projectId: existing.projectId, columnId });
     return tx.task.update({
       where: { id: existing.id },
       data: { ...data, ...(log.length ? { activities: { create: log } } : {}) },

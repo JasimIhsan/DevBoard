@@ -4,15 +4,23 @@ Quick answers to common questions.
 
 ### Why is my board empty?
 
-The board shows only the **active sprint**. Open the Backlog, add tasks to a sprint and click **Start sprint**.
+The board shows only tasks you have moved from the backlog. Open the **Backlog** and click **Move to board** on a task.
 
 ### Where did my task go after I created it?
 
-New tasks go to the backlog unless you chose a sprint. Open the project's **Backlog** page to find it.
+New tasks go to the **backlog** unless you chose a column. Open the project's **Backlog** page to find it.
 
-### Why can't I start a second sprint?
+### Where did my done task go?
 
-A project can have one active sprint. Complete the current one first.
+If you archived it, it is hidden from the board but kept: look in the **Archived** section below the backlog, where you can **Restore** it.
+
+### Can I add my own columns, like "In Review"?
+
+Yes. Click **Add column** on the board, name it and choose what it means (to do, in progress or done). See [Kanban board](/docs/board).
+
+### Why can't I archive a task?
+
+Only **done** tasks can be archived. Move the task to a Done column first.
 
 ### Why can't I add tasks to a project?
 
@@ -55,4 +63,4 @@ Ask it to run `list_projects` first. Archived projects are hidden from search; a
 
 ### The assistant says a task is read-only
 
-Archived projects reject new tasks and sprints. Restore the project in the app.
+Archived projects reject new tasks and columns. Restore the project in the app.

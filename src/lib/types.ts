@@ -1,6 +1,6 @@
-import type { Priority, SprintStatus, TaskStatus, TaskType } from "@prisma/client";
+import type { ColumnCategory, Priority, TaskStatus, TaskType } from "@prisma/client";
 
-export type { Priority, SprintStatus, TaskStatus, TaskType };
+export type { ColumnCategory, Priority, TaskStatus, TaskType };
 
 export interface ProjectDTO {
   id: string;
@@ -14,14 +14,14 @@ export interface ProjectDTO {
   starredAt: string | null;
 }
 
-export interface SprintDTO {
+/** A board column. Tasks with no column are in the backlog. */
+export interface ColumnDTO {
   id: string;
   projectId: string;
   name: string;
-  goal: string | null;
-  status: SprintStatus;
-  startDate: string | null;
-  endDate: string | null;
+  /** What the column means: drives "done" rules (completion time, archiving) and dashboard counts. */
+  category: ColumnCategory;
+  orderIndex: number;
 }
 
 export interface TaskDTO {
@@ -29,7 +29,9 @@ export interface TaskDTO {
   key: string; // e.g. CORE-12
   projectId: string;
   projectKey: string;
-  sprintId: string | null;
+  /** Board column, or null while the task is in the backlog. */
+  columnId: string | null;
+  columnName: string | null;
   taskNumber: number;
   title: string;
   description: string;
@@ -43,6 +45,8 @@ export interface TaskDTO {
   estimate: number | null;
   dueDate: string | null;
   completedAt: string | null;
+  /** Set when a done task has been archived (hidden from the board, listed under the backlog). */
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   subtasksDone: number;
@@ -76,7 +80,8 @@ export interface TaskDetailDTO extends TaskDTO {
 
 export interface ProjectBoardDTO {
   project: ProjectDTO;
-  sprints: SprintDTO[];
+  columns: ColumnDTO[];
+  /** Every task of the project, including archived ones (check `archivedAt`). */
   tasks: TaskDTO[];
 }
 

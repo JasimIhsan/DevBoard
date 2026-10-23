@@ -13,12 +13,12 @@ export function badRequest(error: unknown) {
 export const notFound = (what = "Not found") => NextResponse.json({ error: what }, { status: 404 });
 
 /**
- * Archived projects stay readable but take no new tasks, sprints or imports.
+ * Archived projects stay readable but take no new tasks, columns or imports.
  * Returns a 409 response to send back, or null when the project is writable (or doesn't exist: callers 404 themselves).
  */
 export async function assertWritable(projectKey: string) {
   const p = await db.project.findUnique({ where: { key: projectKey.toUpperCase() }, select: { archivedAt: true } });
-  return p?.archivedAt ? NextResponse.json({ error: "Project is archived. Restore it to add tasks or sprints." }, { status: 409 }) : null;
+  return p?.archivedAt ? NextResponse.json({ error: "Project is archived. Restore it to add tasks or columns." }, { status: 409 }) : null;
 }
 
 /** Accepts either a task UUID or a human key like CORE-12. */

@@ -8,14 +8,15 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BOARD_STATUSES, STATUS_META } from "@/lib/constants";
+import { CATEGORY_META } from "@/lib/constants";
 import { useTaskActions } from "@/lib/client";
-import type { TaskDTO, TaskStatus } from "@/lib/types";
+import type { ColumnDTO, TaskDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { StatusDot } from "@/components/task/badges";
 import { SortableTaskCard, TaskCard } from "./task-card";
+import { ColumnMenu, type ColumnActions } from "./column-menu";
 
-type Col = (typeof BOARD_STATUSES)[number];
+/** Lanes are keyed by board column id. */
+type Col = string;
 type Lanes = Record<Col, string[]>;
 const AUTO_SCROLL = { threshold: { x: 0.12, y: 0.2 }, acceleration: 14 };
 const MEASURING = { droppable: { strategy: MeasuringStrategy.WhileDragging } };
@@ -23,21 +24,29 @@ const MEASURING = { droppable: { strategy: MeasuringStrategy.WhileDragging } };
 const colId = (s: Col) => `col:${s}`;
 const isColId = (id: unknown): boolean => typeof id === "string" && id.startsWith("col:");
 
-const groupIds = (tasks: TaskDTO[]): Lanes => {
-  const lanes = { TODO: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] } as Lanes;
-  [...tasks].sort((a, b) => a.orderIndex - b.orderIndex).forEach((t) => lanes[t.status as Col]?.push(t.id));
+const groupIds = (tasks: TaskDTO[], columns: ColumnDTO[]): Lanes => {
+  const lanes: Lanes = Object.fromEntries(columns.map((c) => [c.id, [] as string[]]));
+  [...tasks].sort((a, b) => a.orderIndex - b.orderIndex).forEach((t) => { if (t.columnId) lanes[t.columnId]?.push(t.id); });
   return lanes;
 };
 
 const findLane = (lanes: Lanes, id: unknown): Col | undefined => {
-  if (isColId(id)) return (id as string).slice(4) as Col;
-  return BOARD_STATUSES.find((s) => lanes[s].includes(id as string));
+  if (isColId(id)) return (id as string).slice(4);
+  return Object.keys(lanes).find((s) => lanes[s].includes(id as string));
 };
 
-export function DesktopBoard({ tasks, onOpen, onCreate }: { tasks: TaskDTO[]; onOpen: (t: TaskDTO) => void; onCreate?: (status: TaskStatus) => void }) {
+export function DesktopBoard({ columns, tasks, onOpen, onCreate, onArchive, actions, onAddColumn }: {
+  columns: ColumnDTO[];
+  tasks: TaskDTO[];
+  onOpen: (t: TaskDTO) => void;
+  onCreate?: (columnId: string) => void;
+  onArchive?: (t: TaskDTO) => void;
+  actions?: ColumnActions;
+  onAddColumn?: () => void;
+}) {
   const { moveTask } = useTaskActions();
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
-  const base = useMemo(() => groupIds(tasks), [tasks]);
+  const base = useMemo(() => groupIds(tasks, columns), [tasks, columns]);
   const [drag, setDrag] = useState<Lanes | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   // Live drag snapshot while dragging; the latest data otherwise. After a drop, React Query publishes the optimistic update one tick later. Until `tasks` changes, keep showing the
@@ -118,9 +127,9 @@ export function DesktopBoard({ tasks, onOpen, onCreate }: { tasks: TaskDTO[]; on
         const next = list[i + 1] ?? null;
         const baseList = base[col];
         const bi = baseList.indexOf(task.id);
-        const unchanged = col === task.status && (baseList[bi - 1] ?? null) === prev && (baseList[bi + 1] ?? null) === next;
+        const unchanged = col === task.columnId && (baseList[bi - 1] ?? null) === prev && (baseList[bi + 1] ?? null) === next;
         if (!unchanged) {
-          moveTask({ task, newStatus: col, prevTaskId: prev, nextTaskId: next });
+          moveTask({ task, columnId: col, prevTaskId: prev, nextTaskId: next });
           setHold({ lanes: final, tasks });
         }
       }
@@ -142,33 +151,44 @@ export function DesktopBoard({ tasks, onOpen, onCreate }: { tasks: TaskDTO[]; on
 
   return (
     <DndContext sensors={sensors} collisionDetection={collision} autoScroll={AUTO_SCROLL} measuring={MEASURING} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { setDrag(null); setActiveId(null); lastOverId.current = null; }}>
-      <div className="grid h-full grid-cols-[repeat(4,minmax(16rem,1fr))] gap-3 overflow-x-auto p-4">
-        {BOARD_STATUSES.map((status) => (
-          <Column key={status} status={status} ids={lanes[status]} byId={byId} onOpen={onOpen} onCreate={onCreate} highlight={!!activeId && lanes[status].includes(activeId)} />
+      <div className="scroll-thin grid h-full auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-4">
+        {columns.map((column, index) => (
+          <Column key={column.id} column={column} index={index} total={columns.length} ids={lanes[column.id] ?? []} byId={byId} onOpen={onOpen} onCreate={onCreate} onArchive={onArchive} actions={actions} highlight={!!activeId && (lanes[column.id] ?? []).includes(activeId)} />
         ))}
+        {onAddColumn && (
+          <button type="button" onClick={onAddColumn} className="flex min-h-24 w-56 items-start gap-2 rounded-xl border border-dashed px-3 py-3 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground">
+            <Plus className="mt-0.5 size-4" />Add column
+          </button>
+        )}
       </div>
       <DragOverlay dropAnimation={null} zIndex={50}>{activeTask ? <TaskCard task={activeTask} overlay /> : null}</DragOverlay>
     </DndContext>
   );
 }
 
-const Column = memo(function Column({ status, ids, byId, onOpen, onCreate, highlight }: { status: Col; ids: string[]; byId: Map<string, TaskDTO>; onOpen: (t: TaskDTO) => void; onCreate?: (s: TaskStatus) => void; highlight: boolean }) {
-  const { setNodeRef } = useDroppable({ id: colId(status) });
+const Column = memo(function Column({ column, index, total, ids, byId, onOpen, onCreate, onArchive, actions, highlight }: {
+  column: ColumnDTO; index: number; total: number; ids: string[]; byId: Map<string, TaskDTO>;
+  onOpen: (t: TaskDTO) => void; onCreate?: (columnId: string) => void; onArchive?: (t: TaskDTO) => void; actions?: ColumnActions; highlight: boolean;
+}) {
+  const { setNodeRef } = useDroppable({ id: colId(column.id) });
   const isOver = highlight;
   const items = ids.map((id) => byId.get(id)).filter((t): t is TaskDTO => !!t);
   const points = items.reduce((n, t) => n + (t.estimate ?? 0), 0);
   return (
-    <section aria-label={STATUS_META[status].label} className={cn("flex min-h-0 min-w-64 flex-col rounded-xl border bg-muted/30 ", isOver && "border-foreground/30 bg-muted/60")}>
+    <section aria-label={column.name} className={cn("flex min-h-0 min-w-64 flex-col rounded-xl border bg-muted/30 ", isOver && "border-foreground/30 bg-muted/60")}>
       <header className="flex items-center gap-2 px-3 py-2.5">
-        <StatusDot status={status} />
-        <h2 className="text-sm font-medium">{STATUS_META[status].label}</h2>
+        <span className={cn("inline-block size-2 shrink-0 rounded-full", CATEGORY_META[column.category].dot)} />
+        <h2 className="min-w-0 truncate text-sm font-medium" title={column.name}>{column.name}</h2>
         <span className="text-xs text-muted-foreground">{items.length}</span>
         {points > 0 && <span className="text-xs text-muted-foreground">· {points} pts</span>}
-        {onCreate && <Button variant="ghost" size="icon-xs" className="ml-auto" aria-label={`Add task to ${STATUS_META[status].label}`} onClick={() => onCreate(status)}><Plus /></Button>}
+        <span className="ml-auto flex items-center">
+          {onCreate && <Button variant="ghost" size="icon-xs" aria-label={`Add task to ${column.name}`} onClick={() => onCreate(column.id)}><Plus /></Button>}
+          {actions && <ColumnMenu column={column} index={index} count={total} doneCount={items.length} actions={actions} />}
+        </span>
       </header>
       <div ref={setNodeRef} className="scroll-thin flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          {items.map((t) => <SortableTaskCard key={t.id} task={t} onOpen={onOpen} />)}
+          {items.map((t) => <SortableTaskCard key={t.id} task={t} onOpen={onOpen} onArchive={column.category === "DONE" ? onArchive : undefined} />)}
         </SortableContext>
         {items.length === 0 && <p className="grid flex-1 place-items-center rounded-lg border border-dashed py-6 text-xs text-muted-foreground">Drop tasks here</p>}
       </div>

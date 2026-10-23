@@ -1,11 +1,11 @@
-DevBoard is a personal task manager built around **sprints and a Kanban board**, in the spirit of Jira but without the weight. There are no accounts or permissions: you open it and work.
+DevBoard is a personal task manager built around **a backlog and a Kanban board**, in the spirit of Jira but without the weight. There are no accounts or permissions: you open it and work.
 
 ## What you can do
 
 - Organise work into **projects**, each with its own short key (for example `CORE`).
 - Capture work as **tasks** with a priority, type, estimate, labels and a due date.
-- Plan with a **backlog** and time-boxed **sprints**.
-- Track progress on a drag-and-drop **board**.
+- Collect work in a **backlog**, then move it onto a drag-and-drop **board**.
+- Add your own **columns** per project (Review, QA, …) and **archive** finished tasks.
 - See everything at a glance on the **dashboard** and the **all-projects board**.
 - Let **AI assistants** read and update your tasks through the built-in **MCP server**.
 

@@ -1,13 +1,15 @@
 import type { Prisma } from "@prisma/client";
-import type { ProjectDTO, SprintDTO, TaskDTO, TaskDetailDTO, TodoDTO, TodoPriority } from "./types";
+import type { ColumnDTO, ProjectDTO, TaskDTO, TaskDetailDTO, TodoDTO, TodoPriority } from "./types";
 
 export const taskInclude = {
   project: { select: { key: true } },
+  column: { select: { name: true } },
   subtasks: { select: { done: true } },
 } satisfies Prisma.TaskInclude;
 
 export const taskDetailInclude = {
   project: { select: { key: true } },
+  column: { select: { name: true } },
   subtasks: { orderBy: { orderIndex: "asc" } },
   comments: { orderBy: { createdAt: "desc" } },
   activities: { orderBy: { createdAt: "desc" }, take: 50 },
@@ -24,7 +26,8 @@ export function serializeTask(t: TaskWithCounts): TaskDTO {
     key: `${t.project.key}-${t.taskNumber}`,
     projectId: t.projectId,
     projectKey: t.project.key,
-    sprintId: t.sprintId,
+    columnId: t.columnId,
+    columnName: t.column?.name ?? null,
     taskNumber: t.taskNumber,
     title: t.title,
     description: t.description,
@@ -38,6 +41,7 @@ export function serializeTask(t: TaskWithCounts): TaskDTO {
     estimate: t.estimate,
     dueDate: iso(t.dueDate),
     completedAt: iso(t.completedAt),
+    archivedAt: iso(t.archivedAt),
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
     subtasksDone: t.subtasks.filter((s) => s.done).length,
@@ -56,11 +60,8 @@ export function serializeTaskDetail(t: TaskWithDetail): TaskDetailDTO {
   };
 }
 
-export function serializeSprint(s: {
-  id: string; projectId: string; name: string; goal: string | null;
-  status: SprintDTO["status"]; startDate: Date | null; endDate: Date | null;
-}): SprintDTO {
-  return { id: s.id, projectId: s.projectId, name: s.name, goal: s.goal, status: s.status, startDate: iso(s.startDate), endDate: iso(s.endDate) };
+export function serializeColumn(c: { id: string; projectId: string; name: string; category: ColumnDTO["category"]; orderIndex: number }): ColumnDTO {
+  return { id: c.id, projectId: c.projectId, name: c.name, category: c.category, orderIndex: c.orderIndex };
 }
 
 export function serializeProject(p: { id: string; name: string; key: string; description: string | null; color: string; archivedAt: Date | null; starredAt: Date | null }): ProjectDTO {

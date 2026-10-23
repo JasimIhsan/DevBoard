@@ -60,31 +60,29 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        <Card title="Active sprints">
-          {d.sprints.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active sprints. Start one from a project backlog.</p>
+        <Card title="Boards">
+          {d.boards.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No projects yet.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {d.sprints.map((s) => {
-                const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+              {d.boards.map((b) => {
+                const pct = b.onBoard ? Math.round((b.done / b.onBoard) * 100) : 0;
                 return (
-                  <Link key={s.sprint.id} href={`/projects/${s.project.key}/board`} className="block rounded-lg border p-3 transition-colors hover:border-foreground/25">
+                  <Link key={b.project.id} href={`/projects/${b.project.key}/board`} className="block rounded-lg border p-3 transition-colors hover:border-foreground/25">
                     <div className="flex items-center gap-2">
-                      <span className="grid size-5 place-items-center rounded text-[9px] font-bold text-white" style={{ background: s.project.color }}>{s.project.key.slice(0, 2)}</span>
-                      <span className="font-medium">{s.project.name}</span>
-                      <span className="text-sm text-muted-foreground">· {s.sprint.name}</span>
-                      {s.daysLeft !== null && <span className={`ml-auto text-xs ${s.daysLeft < 0 ? "text-red-400" : "text-muted-foreground"}`}>{s.daysLeft < 0 ? `${-s.daysLeft}d overdue` : `${s.daysLeft}d left`}</span>}
+                      <span className="grid size-5 place-items-center rounded text-[9px] font-bold text-white" style={{ background: b.project.color }}>{b.project.key.slice(0, 2)}</span>
+                      <span className="font-medium">{b.project.name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{b.backlog} in backlog</span>
                     </div>
-                    {s.sprint.goal && <p className="mt-1 truncate text-xs text-muted-foreground">{s.sprint.goal}</p>}
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {b.columns.map((c) => <span key={c.id}>{c.name} <b className="font-semibold text-foreground">{c.count}</b></span>)}
+                    </div>
                     <Progress value={pct} className="mt-3 h-1.5" />
-                    <p className="mt-2 text-xs text-muted-foreground">{s.done}/{s.total} done · {s.inProgress} in flight · {s.pointsDone}/{s.points} pts · {pct}%</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{b.onBoard === 0 ? "Nothing on the board yet" : `${b.done}/${b.onBoard} done · ${b.pointsDone}/${b.points} pts · ${pct}%`}</p>
                   </Link>
                 );
               })}
             </div>
-          )}
-          {d.projectsWithoutSprint.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">No active sprint: {d.projectsWithoutSprint.map((p, i) => <span key={p.id}>{i > 0 && ", "}<Link className="underline" href={`/projects/${p.key}/backlog`}>{p.key}</Link></span>)}</p>
           )}
         </Card>
 
@@ -101,7 +99,7 @@ export default async function DashboardPage() {
           {d.recentlyDone.length ? <ul>{d.recentlyDone.map((t) => <TaskRow key={t.id} t={t} right={t.completedAt && <span className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(t.completedAt), { addSuffix: true })}</span>} />)}</ul> : <p className="text-sm text-muted-foreground">Nothing completed in the last 7 days.</p>}
         </Card>
 
-        {d.sprints.length === 0 && d.stats.openTasks === 0 && (
+        {d.boards.length === 0 && d.stats.openTasks === 0 && (
           <Button asChild><Link href="/"><Plus />Create your first project from the sidebar</Link></Button>
         )}
       </div>

@@ -8,7 +8,6 @@ DevBoard can send **push notifications** to your phone or computer, even when th
 | **Still pending today** | Late afternoon, if those are still open. |
 | **Overdue** | Each day, while tasks or to-dos are past their due date. |
 | **Urgent** | Each day, while any **P0** task or **High** priority to-do is open. |
-| **Sprint ending** | When an active sprint ends tomorrow, today, or is already past its end date. |
 | **Quiet project** | When a project has open tasks but no activity for 3 days (then at most every 3 days). |
 
 Each notification is sent once, so you never get the same reminder twice. Nothing is sent overnight (before 7:00 or after 21:00 your time). Tapping a notification opens the right page.

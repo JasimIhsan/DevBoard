@@ -2,93 +2,106 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { differenceInCalendarDays, format } from "date-fns";
-import { CalendarDays, Flag, ListTodo, Rocket } from "lucide-react";
+import { Archive, ListTodo, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useBoard } from "@/lib/client";
-import type { ProjectBoardDTO, TaskStatus } from "@/lib/types";
+import { useBoard, useColumnActions, useTaskActions } from "@/lib/client";
+import type { ColumnDTO, ProjectBoardDTO, TaskDTO } from "@/lib/types";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { useUi } from "@/components/ui-state";
-import { CompleteSprintDialog } from "@/components/backlog/sprint-dialogs";
+import { useConfirm } from "@/components/confirm-dialog";
 import { ArchivedBanner } from "@/components/projects/archived-banner";
 import { applyFilters, BoardToolbar, emptyFilters } from "./board-toolbar";
+import { ColumnDialog, type ColumnDialogState } from "./column-dialogs";
+import type { ColumnActions } from "./column-menu";
 import { DesktopBoard } from "./desktop-board";
 import { MobileBoard } from "./mobile-board";
 
 export function KanbanBoard({ projectKey, initialData }: { projectKey: string; initialData: ProjectBoardDTO }) {
   const { data } = useBoard(projectKey, initialData);
   const { openTask, openCreateTask } = useUi();
+  const { moveTask, update } = useTaskActions();
+  const columnApi = useColumnActions(projectKey);
+  const confirm = useConfirm();
   const isDesktop = useIsDesktop();
   const [filters, setFilters] = useState(emptyFilters);
-  const [completing, setCompleting] = useState(false);
+  const [dialog, setDialog] = useState<ColumnDialogState>(null);
 
   const board = data ?? initialData;
-  const archived = board.project.archived; // archived: viewable, but no new tasks or sprint changes
-  const sprint = board.sprints.find((s) => s.status === "ACTIVE");
-  const sprintTasks = useMemo(() => (sprint ? board.tasks.filter((t) => t.sprintId === sprint.id && t.status !== "BACKLOG") : []), [board.tasks, sprint]);
-  const visible = useMemo(() => applyFilters(sprintTasks, filters), [sprintTasks, filters]);
-  const labels = useMemo(() => [...new Set(sprintTasks.flatMap((t) => t.labels))].sort(), [sprintTasks]);
+  const readOnly = board.project.archived; // archived project: viewable, but no new tasks or columns
+  const columns = board.columns;
+  // The board shows tasks that sit in a column and haven't been archived.
+  const onBoard = useMemo(() => board.tasks.filter((t) => t.columnId && !t.archivedAt), [board.tasks]);
+  const visible = useMemo(() => applyFilters(onBoard, filters), [onBoard, filters]);
+  const labels = useMemo(() => [...new Set(onBoard.flatMap((t) => t.labels))].sort(), [onBoard]);
+  const backlogCount = board.tasks.filter((t) => !t.columnId).length;
+  const archivedCount = board.tasks.filter((t) => t.archivedAt).length;
 
-  const sprintId = sprint?.id;
   const onOpen = useCallback((t: { key: string }) => openTask(t.key), [openTask]);
-  const create = useCallback((status: TaskStatus) => openCreateTask({ projectKey, status, sprintId }), [openCreateTask, projectKey, sprintId]);
+  const create = useCallback((columnId: string) => openCreateTask({ projectKey, columnId }), [openCreateTask, projectKey]);
+  const archive = useCallback((task: TaskDTO) => update.mutate({ task, patch: { archived: true } }), [update]);
 
-  if (!sprint) {
-    return (
-      <div className="flex h-full flex-col">
-        {archived && <ArchivedBanner project={board.project} />}
-        <div className="grid min-h-0 flex-1 place-items-center p-6">
-        <div className="max-w-sm text-center">
-          <Rocket className="mx-auto mb-3 size-8 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">No active sprint</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Plan a sprint in the backlog and start it to populate this board.</p>
-          <Button asChild className="mt-4"><Link href={`/projects/${projectKey}/backlog`}><ListTodo />Go to backlog</Link></Button>
-        </div>
-      </div>
-        </div>
-    );
-  }
+  const done = onBoard.filter((t) => t.status === "DONE").length;
+  const pct = onBoard.length ? Math.round((done / onBoard.length) * 100) : 0;
+  const points = onBoard.reduce((n, t) => n + (t.estimate ?? 0), 0);
+  const pointsDone = onBoard.filter((t) => t.status === "DONE").reduce((n, t) => n + (t.estimate ?? 0), 0);
 
-  const done = sprintTasks.filter((t) => t.status === "DONE").length;
-  const pct = sprintTasks.length ? Math.round((done / sprintTasks.length) * 100) : 0;
-  const points = sprintTasks.reduce((n, t) => n + (t.estimate ?? 0), 0);
-  const pointsDone = sprintTasks.filter((t) => t.status === "DONE").reduce((n, t) => n + (t.estimate ?? 0), 0);
-  const daysLeft = sprint.endDate ? differenceInCalendarDays(new Date(sprint.endDate), new Date()) : null;
+  const actions: ColumnActions | undefined = readOnly
+    ? undefined
+    : {
+        rename: (c) => setDialog({ mode: "rename", column: c }),
+        remove: (c) => setDialog({ mode: "delete", column: c }),
+        move: (c, direction) => columnApi.update.mutate({ id: c.id, direction }),
+        archiveAll: async (c: ColumnDTO) => {
+          const n = onBoard.filter((t) => t.columnId === c.id).length;
+          const ok = await confirm({ title: `Archive ${n} task${n === 1 ? "" : "s"} in ${c.name}?`, description: "They disappear from the board but stay Done, and are listed under Archived below the backlog. You can restore them any time.", confirmLabel: "Archive" });
+          if (ok) columnApi.archiveAll.mutate(c.id);
+        },
+      };
 
   return (
     <div className="flex h-full flex-col">
-      {archived && <ArchivedBanner project={board.project} />}
+      {readOnly && <ArchivedBanner project={board.project} />}
       <div className="shrink-0 space-y-3 border-b px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="text-base font-semibold">{sprint.name}</h1>
-          {sprint.goal && <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground"><Flag className="size-3.5 shrink-0" /><span className="truncate">{sprint.goal}</span></p>}
-          <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-            {sprint.endDate && (
-              <span className="flex items-center gap-1"><CalendarDays className="size-3.5" />{sprint.startDate && `${format(new Date(sprint.startDate), "MMM d")} – `}{format(new Date(sprint.endDate), "MMM d")}{daysLeft !== null && <b className={daysLeft < 0 ? "text-red-400" : daysLeft <= 2 ? "text-amber-400" : ""}> ({daysLeft < 0 ? `${-daysLeft}d overdue` : `${daysLeft}d left`})</b>}</span>
-            )}
-            {!archived && <Button size="xs" variant="outline" onClick={() => setCompleting(true)}>Complete sprint</Button>}
+          <h1 className="text-base font-semibold">Board</h1>
+          <p className="text-sm text-muted-foreground">{onBoard.length} task{onBoard.length === 1 ? "" : "s"} · {done} done{points > 0 && ` · ${pointsDone}/${points} pts`}</p>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {!readOnly && <Button size="sm" variant="outline" onClick={() => setDialog({ mode: "add" })}><Plus />Add column</Button>}
+            <Button asChild size="sm" variant="outline"><Link href={`/projects/${projectKey}/backlog`}><ListTodo />Backlog{backlogCount > 0 && <span className="text-muted-foreground">{backlogCount}</span>}</Link></Button>
+            {archivedCount > 0 && <Button asChild size="sm" variant="ghost"><Link href={`/projects/${projectKey}/backlog#archived`}><Archive />Archived<span className="text-muted-foreground">{archivedCount}</span></Link></Button>}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Progress value={pct} className="h-1.5 flex-1" />
-          <span className="shrink-0 text-xs text-muted-foreground">{done}/{sprintTasks.length} tasks · {pointsDone}/{points} pts</span>
-        </div>
+        {onBoard.length > 0 && <Progress value={pct} className="h-1.5" />}
         <BoardToolbar filters={filters} onChange={setFilters} labels={labels} />
       </div>
 
+      {onBoard.length === 0 && (
+        <p className="shrink-0 border-b bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
+          The board is empty. Add tasks in the <Link className="underline" href={`/projects/${projectKey}/backlog`}>backlog</Link>, then move them here{backlogCount > 0 && ` (${backlogCount} waiting)`}.
+        </p>
+      )}
+
       <div className="min-h-0 flex-1">
         {isDesktop === null ? (
-          <div className="grid grid-cols-4 gap-3 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-64" />)}</div>
+          <div className="grid grid-cols-3 gap-3 p-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64" />)}</div>
         ) : isDesktop ? (
-          <DesktopBoard tasks={visible} onOpen={onOpen} onCreate={archived ? undefined : create} />
+          <DesktopBoard columns={columns} tasks={visible} onOpen={onOpen} onCreate={readOnly ? undefined : create} onArchive={readOnly ? undefined : archive} actions={actions} onAddColumn={readOnly ? undefined : () => setDialog({ mode: "add" })} />
         ) : (
-          <MobileBoard tasks={visible} onOpen={onOpen} onCreate={archived ? undefined : create} />
+          <MobileBoard
+            lanes={columns.map((c) => ({ id: c.id, title: c.name, category: c.category }))}
+            laneOf={(t) => t.columnId}
+            tasks={visible}
+            onOpen={onOpen}
+            onCreate={readOnly ? undefined : create}
+            onArchive={readOnly ? undefined : archive}
+            onMove={(task, columnId, last) => moveTask({ task, columnId, prevTaskId: last?.id ?? null, nextTaskId: null })}
+          />
         )}
       </div>
 
-      <CompleteSprintDialog key={String(completing)} projectKey={projectKey} sprint={sprint} tasks={sprintTasks} otherSprints={board.sprints.filter((s) => s.status === "DRAFT")} open={completing} onOpenChange={setCompleting} />
+      <ColumnDialog projectKey={projectKey} columns={columns} tasks={board.tasks} state={dialog} onClose={() => setDialog(null)} />
     </div>
   );
 }

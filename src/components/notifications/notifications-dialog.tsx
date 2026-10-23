@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, BellOff, CalendarClock, CalendarX, Flame, Flag, Moon, Send, TriangleAlert } from "lucide-react";
+import { Bell, BellOff, CalendarClock, CalendarX, Flame, Moon, Send, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +13,6 @@ const WHAT = [
   { icon: CalendarClock, text: "Tasks and to-dos due today, each morning and again late afternoon if still open" },
   { icon: CalendarX, text: "Anything overdue" },
   { icon: Flame, text: "Urgent work: open P0 tasks and high-priority to-dos" },
-  { icon: Flag, text: "A sprint ending tomorrow, today, or already past its end date" },
   { icon: Moon, text: "A project with open tasks but no activity for 3 days" },
 ];
 

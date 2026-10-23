@@ -6,11 +6,11 @@ Click any task card to open its **detail panel**. Almost everything saves automa
 - Use the **New task** button in the top bar.
 - Use the **+** on a board column or the quick-add row in the backlog.
 
-Only a title is required. Tasks created without a sprint go to the backlog.
+Only a title is required. New tasks go to the **backlog** unless you choose a column in the *Add to* field (a column's **+** button picks that column for you).
 
 ## Fields
 
-Set the **type**, **priority**, **estimate**, **labels**, **due date** and **sprint** from the detail panel. See [Core concepts](/docs/concepts) for what each one means.
+Set the **type**, **priority**, **estimate**, **labels**, **due date** and **column** from the detail panel. Choosing **Backlog** as the column sends the task back to the backlog. See [Core concepts](/docs/concepts) for what each one means.
 
 ## Description
 
@@ -30,7 +30,7 @@ Every task has a suggested **git branch name**, for example `core-12-add-rate-li
 
 ## Activity
 
-The activity log records changes such as status moves and edits so you can see how a task evolved.
+The activity log records changes such as column moves, archiving and edits so you can see how a task evolved.
 
 ## Deleting a task
 

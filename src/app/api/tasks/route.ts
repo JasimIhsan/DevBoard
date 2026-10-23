@@ -8,7 +8,10 @@ import { createTaskSchema, statusEnum } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/tasks?projectKey=CORE&sprintId=...&status=TODO&q=rate&sort=recent&limit=20 */
+/**
+ * GET /api/tasks?projectKey=CORE&columnId=...|none&status=TODO&archived=include|only&q=rate&sort=recent&limit=20
+ * Archived tasks are left out unless `archived` says otherwise. `columnId=none` means the backlog.
+ */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const where: Prisma.TaskWhereInput = {};
@@ -17,9 +20,13 @@ export async function GET(req: NextRequest) {
   // Searches and lists across projects ignore archived ones; asking for a specific project still works.
   where.project = projectKey ? { key: projectKey.toUpperCase() } : { archivedAt: null };
 
-  const sprintId = sp.get("sprintId");
-  if (sprintId === "none") where.sprintId = null;
-  else if (sprintId) where.sprintId = sprintId;
+  const columnId = sp.get("columnId");
+  if (columnId === "none") where.columnId = null;
+  else if (columnId) where.columnId = columnId;
+
+  const archived = sp.get("archived");
+  if (archived === "only") where.archivedAt = { not: null };
+  else if (archived !== "include") where.archivedAt = null;
 
   const status = statusEnum.safeParse(sp.get("status"));
   if (status.success) where.status = status.data;
@@ -54,9 +61,9 @@ export async function POST(req: NextRequest) {
   const blocked = await assertWritable(parsed.data.projectKey);
   if (blocked) return blocked;
 
-  if (parsed.data.sprintId) {
-    const sprint = await db.sprint.findFirst({ where: { id: parsed.data.sprintId, projectId: project.id }, select: { id: true } });
-    if (!sprint) return badRequest(new Error("sprint"));
+  if (parsed.data.columnId) {
+    const column = await db.boardColumn.findFirst({ where: { id: parsed.data.columnId, projectId: project.id }, select: { id: true } });
+    if (!column) return NextResponse.json({ error: "That column doesn't exist in this project." }, { status: 400 });
   }
 
   const task = await createTask(parsed.data);

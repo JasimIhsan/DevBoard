@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -11,9 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api, qk, useBoard } from "@/lib/client";
-import { ALL_STATUSES, PRIORITIES, PRIORITY_META, STATUS_META, TASK_TYPES, TYPE_META } from "@/lib/constants";
+import { CATEGORY_META, PRIORITIES, PRIORITY_META, TASK_TYPES, TYPE_META } from "@/lib/constants";
 import { createTaskSchema } from "@/lib/validators";
-import type { Priority, TaskDTO, TaskStatus, TaskType } from "@/lib/types";
+import type { Priority, TaskDTO, TaskType } from "@/lib/types";
 import { useUi } from "@/components/ui-state";
 
 export function CreateTaskDialog({ projects }: { projects: { key: string; name: string }[] }) {
@@ -33,15 +33,13 @@ function Form({ projects, onDone }: { projects: { key: string; name: string }[];
   const qc = useQueryClient();
   const [projectKey, setProjectKey] = useState(() => (opts?.projectKey && projects.some((p) => p.key === opts.projectKey!.toUpperCase()) ? opts.projectKey.toUpperCase() : projects[0]?.key ?? ""));
   const { data: board } = useBoard(projectKey);
-  const sprints = useMemo(() => (board?.sprints ?? []).filter((s) => s.status !== "COMPLETED"), [board]);
-  const activeSprint = sprints.find((s) => s.status === "ACTIVE");
+  const columns = board?.columns ?? [];
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<TaskType>("FEATURE");
   const [priority, setPriority] = useState<Priority>("P2");
-  const [sprintChoice, setSprintChoice] = useState<string | undefined>(opts?.sprintId === undefined ? undefined : opts.sprintId ?? "none");
-  const [status, setStatus] = useState<TaskStatus | undefined>(opts?.status);
+  const [whereChoice, setWhereChoice] = useState<string | undefined>(opts?.columnId === undefined ? undefined : opts.columnId ?? "backlog");
   const [estimate, setEstimate] = useState("");
   const [due, setDue] = useState("");
   const [labels, setLabels] = useState("");
@@ -49,12 +47,9 @@ function Form({ projects, onDone }: { projects: { key: string; name: string }[];
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => titleRef.current?.focus(), []);
 
-  // Default to the active sprint when the caller didn't specify one.
-  const sprintId = sprintChoice ?? (activeSprint?.id ?? "none");
-  const chosenSprint = sprints.find((s) => s.id === sprintId);
-  // Only tasks in the active sprint appear on the board; draft-sprint tasks stay BACKLOG until it starts.
-  const onBoard = chosenSprint?.status === "ACTIVE";
-  const effectiveStatus: TaskStatus = onBoard ? (status && status !== "BACKLOG" ? status : "TODO") : "BACKLOG";
+  // New tasks go to the backlog unless the caller (a column's "+") or the user picked a board column.
+  const fromCategory = opts?.category ? columns.find((c) => c.category === opts.category)?.id : undefined;
+  const where = whereChoice ?? fromCategory ?? "backlog";
 
   const create = useMutation({
     mutationFn: (json: unknown) => api<TaskDTO>("/api/tasks", { method: "POST", json }),
@@ -74,8 +69,7 @@ function Form({ projects, onDone }: { projects: { key: string; name: string }[];
       description: description || undefined,
       type,
       priority,
-      status: effectiveStatus,
-      sprintId: sprintId === "none" ? null : sprintId,
+      columnId: where === "backlog" ? null : where,
       estimate: estimate ? Number(estimate) : null,
       dueDate: due ? new Date(`${due}T12:00:00`).toISOString() : null,
       labels: labels.split(",").map((l) => l.trim().toLowerCase()).filter(Boolean),
@@ -95,7 +89,7 @@ function Form({ projects, onDone }: { projects: { key: string; name: string }[];
 
       {projects.length > 1 && (
         <Field label="Project">
-          <Select value={projectKey} onValueChange={(v) => { setProjectKey(v); setSprintChoice(undefined); }}>
+          <Select value={projectKey} onValueChange={(v) => { setProjectKey(v); setWhereChoice(undefined); }}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>{projects.map((p) => <SelectItem key={p.key} value={p.key}>{p.key} · {p.name}</SelectItem>)}</SelectContent>
           </Select>
@@ -122,19 +116,13 @@ function Form({ projects, onDone }: { projects: { key: string; name: string }[];
             <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{PRIORITY_META[p].label}</SelectItem>)}</SelectContent>
           </Select>
         </Field>
-        <Field label="Sprint">
-          <Select value={sprintId} onValueChange={setSprintChoice}>
+        <Field label="Add to">
+          <Select value={where} onValueChange={setWhereChoice}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Backlog (no sprint)</SelectItem>
-              {sprints.map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {s.status.toLowerCase()}</SelectItem>)}
+              <SelectItem value="backlog">Backlog</SelectItem>
+              {columns.map((c) => <SelectItem key={c.id} value={c.id}>{c.name} · {CATEGORY_META[c.category].label.toLowerCase()}</SelectItem>)}
             </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Status">
-          <Select value={effectiveStatus} onValueChange={(v) => setStatus(v as TaskStatus)} disabled={!onBoard}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>{ALL_STATUSES.filter((s) => onBoard ? s !== "BACKLOG" : s === "BACKLOG").map((s) => <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>)}</SelectContent>
           </Select>
         </Field>
         <Field label="Estimate (points)">

@@ -15,7 +15,7 @@ export function registerProjectTools(server: McpServer, api: ApiFn) {
     "create_project",
     {
       title: "Create project",
-      description: "Create a project. The key (2-10 letters/digits, starting with a letter, e.g. CORE) prefixes every task number (CORE-1, CORE-2…) and can never be changed. A first draft sprint is created automatically.",
+      description: "Create a project. The key (2-10 letters/digits, starting with a letter, e.g. CORE) prefixes every task number (CORE-1, CORE-2…) and can never be changed. The board starts with the columns To Do, In Progress and Done.",
       inputSchema: { name: z.string().min(1).max(80), key: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,9}$/, "2-10 letters/digits, starting with a letter."), description: z.string().max(300).optional(), color: color.optional() },
       annotations: WRITE,
     },
@@ -26,7 +26,7 @@ export function registerProjectTools(server: McpServer, api: ApiFn) {
     "update_project",
     {
       title: "Update project",
-      description: "Rename a project, change its description or color, star it (pins it in the sidebar), or archive/restore it. Archived projects are hidden from boards, dashboard and search and accept no new tasks or sprints, but nothing is deleted. The key cannot change.",
+      description: "Rename a project, change its description or color, star it (pins it in the sidebar), or archive/restore it. Archived projects are hidden from boards, dashboard and search and accept no new tasks or columns, but nothing is deleted. The key cannot change.",
       inputSchema: { projectKey: z.string(), name: z.string().min(1).max(80).optional(), description: z.string().max(300).nullable().optional(), color: color.optional(), starred: z.boolean().optional(), archived: z.boolean().optional() },
       annotations: WRITE_IDEMPOTENT,
     },
@@ -40,7 +40,7 @@ export function registerProjectTools(server: McpServer, api: ApiFn) {
     "delete_project",
     {
       title: "Delete project (permanent)",
-      description: "Permanently delete a project together with ALL its sprints and tasks. Cannot be undone. Prefer update_project with archived:true unless the user explicitly wants it gone. confirmKey must equal the project key.",
+      description: "Permanently delete a project together with ALL its columns and tasks (archived ones too). Cannot be undone. Prefer update_project with archived:true unless the user explicitly wants it gone. confirmKey must equal the project key.",
       inputSchema: { projectKey: z.string(), confirmKey: z.string().describe("Repeat the project key to confirm.") },
       annotations: DESTRUCTIVE,
     },

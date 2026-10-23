@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, GitBranch, History, Loader2, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, Copy, ExternalLink, GitBranch, History, Loader2, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,13 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, qk, useBoard, useTask, useTaskActions } from "@/lib/client";
-import { ALL_STATUSES, PRIORITIES, PRIORITY_META, STATUS_META, TASK_TYPES, TYPE_META } from "@/lib/constants";
-import type { Priority, TaskDetailDTO, TaskStatus, TaskType } from "@/lib/types";
+import { CATEGORY_META, PRIORITIES, PRIORITY_META, TASK_TYPES, TYPE_META } from "@/lib/constants";
+import type { Priority, TaskDetailDTO, TaskType } from "@/lib/types";
 import { useUi } from "@/components/ui-state";
 import { recordRecent } from "@/lib/recent";
 import { useConfirm } from "@/components/confirm-dialog";
 import { Markdown } from "./markdown";
-import { StatusDot, TypeIcon } from "./badges";
+import { TypeIcon } from "./badges";
 
 export function TaskDetailSheet() {
   const { openTaskKey, closeTask } = useUi();
@@ -44,7 +44,7 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
   const { update, remove } = useTaskActions();
   const confirm = useConfirm();
   const { data: board } = useBoard(task.projectKey);
-  const sprints = (board?.sprints ?? []).filter((s) => s.status !== "COMPLETED" || s.id === task.sprintId);
+  const columns = board?.columns ?? [];
 
   useEffect(() => recordRecent({ id: `task:${task.key}`, kind: "task", projectKey: task.projectKey, taskKey: task.key, title: task.title, taskType: task.type }), [task.key, task.projectKey, task.title, task.type]);
   const [title, setTitle] = useState(task.title);
@@ -96,6 +96,11 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
           {update.isPending && <Loader2 className="size-3 animate-spin" />}
           Updated {formatDistanceToNow(new Date(task.updatedAt), { addSuffix: true })}
         </span>
+        {(task.status === "DONE" || task.archivedAt) && (
+          <Button size="sm" variant="outline" onClick={() => save({ archived: !task.archivedAt })}>
+            {task.archivedAt ? <><ArchiveRestore />Restore</> : <><Archive />Archive</>}
+          </Button>
+        )}
         <Button size="icon-sm" variant="ghost" aria-label="Delete task" onClick={async () => {
             const ok = await confirm({
               title: `Delete ${task.key}?`,
@@ -121,10 +126,13 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
         />
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Meta label="Status">
-            <Select value={task.status} onValueChange={(v) => save({ status: v as TaskStatus })}>
+          <Meta label="Column">
+            <Select value={task.columnId ?? "backlog"} onValueChange={(v) => save({ columnId: v === "backlog" ? null : v })}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>{ALL_STATUSES.map((s) => <SelectItem key={s} value={s}><StatusDot status={s} />{STATUS_META[s].label}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                <SelectItem value="backlog"><span className="inline-block size-2 rounded-full bg-zinc-500" />Backlog</SelectItem>
+                {columns.map((c) => <SelectItem key={c.id} value={c.id}><span className={`inline-block size-2 rounded-full ${CATEGORY_META[c.category].dot}`} />{c.name}</SelectItem>)}
+              </SelectContent>
             </Select>
           </Meta>
           <Meta label="Priority">
@@ -137,15 +145,6 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
             <Select value={task.type} onValueChange={(v) => save({ type: v as TaskType })}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>{TASK_TYPES.map((t) => <SelectItem key={t} value={t}>{TYPE_META[t].label}</SelectItem>)}</SelectContent>
-            </Select>
-          </Meta>
-          <Meta label="Sprint">
-            <Select value={task.sprintId ?? "none"} onValueChange={(v) => save({ sprintId: v === "none" ? null : v })}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Backlog</SelectItem>
-                {sprints.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
             </Select>
           </Meta>
           <Meta label="Estimate (pts)">

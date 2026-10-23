@@ -14,41 +14,51 @@ A single piece of work. A task has a title, an optional Markdown description, an
 
 | Field | Meaning |
 | --- | --- |
-| **Status** | Where the task is in its life: Backlog, To Do, In Progress, In Review or Done. |
+| **Column** | Where the task is: the **Backlog**, or one of the board's columns. |
 | **Priority** | How urgent it is: **P0** Critical, **P1** High, **P2** Medium, **P3** Low. |
 | **Type** | What kind of work: **Feature**, **Bug**, **Chore** or **Spike** (a time-boxed investigation). |
-| **Estimate** | A size in *points*. Higher means more effort. Points add up per column and per sprint. |
+| **Estimate** | A size in *points*. Higher means more effort. Points add up per column. |
 | **Labels** | Free-form tags such as `api` or `security`. Stored in lowercase. |
 | **Due date** | Optional deadline. Overdue tasks are highlighted. |
 | **Branch** | A suggested git branch name generated from the task key and title. |
 
-## Status
-
-| Status | Meaning |
-| --- | --- |
-| **Backlog** | Not scheduled. Lives on the backlog page, not on the board. |
-| **To Do** | In the active sprint, not started. |
-| **In Progress** | Someone is working on it. |
-| **In Review** | Work is finished and waiting for review. |
-| **Done** | Complete. |
-
 ## Backlog
 
-The holding area for work that is not in a sprint. Prioritise it, estimate it, and pull tasks into a sprint when you are ready.
-
-## Sprint
-
-A time-boxed batch of work with a name, an optional goal and dates. A sprint is **Draft** (planned), **Active** (running) or **Completed** (finished). Only one sprint per project can be active.
+The holding area for tasks that are not on the board yet. Capture ideas here, prioritise them, and move a task to the board when you are ready to start it.
 
 ## Board
 
-The Kanban view of the active sprint with four columns: To Do, In Progress, In Review and Done. Dragging a card changes its status.
+The Kanban view of a project: columns of cards you drag as work progresses.
+
+## Column
+
+One stage on the board. Every project starts with **To Do**, **In Progress** and **Done**, and can add more (Review, QA, …). Each column has a **type** that says what it means.
+
+## Column type (category)
+
+What a column means, whatever it is called:
+
+| Type | Meaning |
+| --- | --- |
+| **To do** | Not started. |
+| **In progress** | Being worked on. Custom stages like Review usually use this. |
+| **Done** | Finished. Gets a completion time and can be archived. |
+
+Dashboards and notifications use the type, so a "QA" column of type *In progress* counts as work in progress.
+
+## Status
+
+A task's state in one word: **Backlog** (not on the board), or the type of the column it is in (**To do**, **In progress**, **Done**).
+
+## Archive
+
+Hiding a **done** task from the board without changing it. Archived tasks stay Done and are listed under the backlog. You can restore them any time.
 
 ## Subtask
 
 A checklist item inside a task. Use subtasks for small steps that do not need their own card.
 
-## Archive and star
+## Archive and star (projects)
 
 - **Star** a project to pin it in the sidebar.
 - **Archive** a project when it is finished. It becomes read-only and disappears from the sidebar, dashboard and search, but nothing is lost. You can restore it at any time.

@@ -2,12 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { TaskStatus } from "@/lib/types";
+import type { ColumnCategory } from "@/lib/types";
 
 export interface CreateTaskOpts {
   projectKey?: string;
-  status?: TaskStatus;
-  sprintId?: string | null;
+  /** Board column to add the task to. Omit (or null) for the backlog. */
+  columnId?: string | null;
+  /** Alternative to columnId (all-projects board): the first column of this status in whichever project is chosen. */
+  category?: ColumnCategory;
 }
 
 interface UiState {

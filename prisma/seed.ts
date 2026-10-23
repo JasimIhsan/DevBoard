@@ -4,53 +4,57 @@ const db = new PrismaClient();
 const day = 86_400_000;
 const daysFromNow = (n: number) => new Date(Date.now() + n * day);
 
+/** The demo data uses a Review stage; it becomes an extra "In Review" column. */
+type SeedStatus = TaskStatus | "IN_REVIEW";
+
 interface SeedTask {
   title: string;
   description: string;
-  status: TaskStatus;
+  status: SeedStatus;
   priority: Priority;
   type: TaskType;
   branch: string;
   labels: string[];
   estimate: number;
   due?: number;
-  inSprint?: boolean;
+  /** false means the task waits in the backlog instead of being on the board. */
+  onBoard?: boolean;
   subtasks?: [string, boolean][];
 }
 
 async function seedProject(
   p: { name: string; key: string; description: string; color: string },
-  sprint: { name: string; goal: string },
   tasks: SeedTask[],
 ) {
   const project = await db.project.create({ data: { ...p, nextTaskNumber: 1 } });
-  const active = await db.sprint.create({
-    data: {
-      projectId: project.id,
-      name: sprint.name,
-      goal: sprint.goal,
-      status: "ACTIVE",
-      startDate: daysFromNow(-5),
-      endDate: daysFromNow(9),
-    },
-  });
-  await db.sprint.create({
-    data: { projectId: project.id, name: `${sprint.name.replace(/\d+$/, "")}${Number(sprint.name.match(/\d+$/)?.[0] ?? 1) + 1}`, goal: "Next up — draft", status: "DRAFT" },
-  });
+  const defs: { name: string; category: "TODO" | "IN_PROGRESS" | "DONE"; status: SeedStatus }[] = [
+    { name: "To Do", category: "TODO", status: "TODO" },
+    { name: "In Progress", category: "IN_PROGRESS", status: "IN_PROGRESS" },
+    ...(tasks.some((t) => t.status === "IN_REVIEW") ? [{ name: "In Review", category: "IN_PROGRESS" as const, status: "IN_REVIEW" as const }] : []),
+    { name: "Done", category: "DONE", status: "DONE" },
+  ];
+  const columnIds = new Map<SeedStatus, string>();
+  for (const [i, d] of defs.entries()) {
+    const col = await db.boardColumn.create({ data: { projectId: project.id, name: d.name, category: d.category, orderIndex: (i + 1) * 1000 } });
+    columnIds.set(d.status, col.id);
+  }
 
   const counters: Record<string, number> = {};
   let n = 1;
   for (const t of tasks) {
-    const lane = `${t.inSprint === false ? "backlog" : "sprint"}:${t.status}`;
+    const onBoard = t.onBoard !== false && t.status !== "BACKLOG";
+    const columnId = onBoard ? columnIds.get(t.status) ?? null : null;
+    const status: TaskStatus = !columnId ? "BACKLOG" : t.status === "IN_REVIEW" ? "IN_PROGRESS" : t.status;
+    const lane = columnId ?? "backlog";
     counters[lane] = (counters[lane] ?? 0) + 1000;
     await db.task.create({
       data: {
         projectId: project.id,
-        sprintId: t.inSprint === false ? null : active.id,
+        columnId,
         taskNumber: n++,
         title: t.title,
         description: t.description,
-        status: t.status,
+        status,
         priority: t.priority,
         type: t.type,
         orderIndex: counters[lane],
@@ -58,7 +62,7 @@ async function seedProject(
         labels: t.labels,
         estimate: t.estimate,
         dueDate: t.due !== undefined ? daysFromNow(t.due) : null,
-        completedAt: t.status === "DONE" ? daysFromNow(-1) : null,
+        completedAt: status === "DONE" ? daysFromNow(-1) : null,
         subtasks: { create: (t.subtasks ?? []).map(([title, done], i) => ({ title, done, orderIndex: (i + 1) * 1000 })) },
         activities: { create: { kind: "CREATED", detail: "Task created" } },
       },
@@ -72,7 +76,6 @@ async function main() {
 
   await seedProject(
     { name: "Core Platform", key: "CORE", description: "Backend services, API and infrastructure", color: "#6366f1" },
-    { name: "Sprint 12", goal: "Harden the API and ship webhook retries" },
     [
       {
         title: "Add rate limiting middleware to public API",
@@ -104,14 +107,13 @@ async function main() {
         title: "Spike: evaluate Postgres logical replication for analytics",
         description: "Compare logical replication vs. CDC (Debezium). Write up findings.",
         status: "BACKLOG", priority: "P3", type: "SPIKE", branch: "spike/core-5-logical-replication",
-        labels: ["db", "research"], estimate: 3, inSprint: false,
+        labels: ["db", "research"], estimate: 3, onBoard: false,
       },
     ],
   );
 
   await seedProject(
     { name: "Web Client", key: "WEB", description: "Customer-facing React application", color: "#22c55e" },
-    { name: "Sprint 7", goal: "Polish onboarding and improve accessibility" },
     [
       {
         title: "Redesign onboarding checklist component",
@@ -136,12 +138,12 @@ async function main() {
         title: "Dark mode for marketing pages",
         description: "Extend design tokens and test contrast ratios (WCAG AA).",
         status: "BACKLOG", priority: "P3", type: "FEATURE", branch: "feat/web-4-dark-marketing",
-        labels: ["ui"], estimate: 3, inSprint: false,
+        labels: ["ui"], estimate: 3, onBoard: false,
       },
     ],
   );
 
-  console.log("Seeded 2 projects, 2 active sprints, 2 draft sprints, 9 tasks.");
+  console.log("Seeded 2 projects with default board columns, 9 tasks.");
 }
 
 main().finally(() => db.$disconnect());

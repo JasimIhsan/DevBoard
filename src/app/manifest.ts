@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "DevBoard",
     short_name: "DevBoard",
-    description: "A fast Kanban board for developers: projects, sprints and tasks in one place.",
+    description: "A fast Kanban board for developers: projects, a backlog, boards and tasks in one place.",
     start_url: "/",
     scope: "/",
     display: "standalone",

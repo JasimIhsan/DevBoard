@@ -13,11 +13,18 @@ enum SprintStatus {
   COMPLETED
 }
 
+/// A task's state as a category: BACKLOG (no board column) or the category of its board column.
 enum TaskStatus {
   BACKLOG
   TODO
   IN_PROGRESS
-  IN_REVIEW
+  DONE
+}
+
+/// What a board column means. Custom columns (Review, QA, ...) pick one so dashboards and "done" rules keep working.
+enum ColumnCategory {
+  TODO
+  IN_PROGRESS
   DONE
 }
 
@@ -44,22 +51,39 @@ enum ActivityKind {
 }
 
 model Project {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   name           String
-  key            String   @unique
+  key            String    @unique
   description    String?
-  color          String   @default("#6366f1")
+  color          String    @default("#6366f1")
   /// Per-project counter used to mint task numbers (CORE-1, CORE-2, ...).
-  nextTaskNumber Int      @default(1)
+  nextTaskNumber Int       @default(1)
   /// Archived projects are hidden everywhere except /projects and their own (read-only-ish) pages.
   archivedAt     DateTime?
   /// Starred projects are pinned in the sidebar; ordered by when they were starred.
   starredAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
+  /// Sprints are no longer used by the app; the table is kept so existing data isn't lost.
   sprints Sprint[]
+  columns BoardColumn[]
   tasks   Task[]
+}
+
+/// A board column. Every project starts with To Do, In Progress and Done and can add more.
+model BoardColumn {
+  id         String         @id @default(uuid())
+  projectId  String
+  name       String
+  category   ColumnCategory
+  orderIndex Float          @default(1000.0)
+  createdAt  DateTime       @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, orderIndex])
 }
 
 model Sprint {
@@ -83,7 +107,10 @@ model Sprint {
 model Task {
   id          String     @id @default(uuid())
   projectId   String
+  /// Deprecated: sprints are no longer used.
   sprintId    String?
+  /// The board column the task sits in. NULL means it is in the backlog.
+  columnId    String?
   taskNumber  Int
   title       String
   description String     @default("")
@@ -97,11 +124,14 @@ model Task {
   estimate    Int?
   dueDate     DateTime?
   completedAt DateTime?
+  /// Set when a done task is archived: hidden from the board, still DONE, listed under the backlog.
+  archivedAt  DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sprint     Sprint?     @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprint     Sprint?      @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  column     BoardColumn? @relation(fields: [columnId], references: [id], onDelete: NoAction)
   subtasks   Subtask[]
   comments   Comment[]
   activities Activity[]
@@ -110,6 +140,7 @@ model Task {
   @@index([projectId, status, orderIndex])
   @@index([sprintId, status, orderIndex])
   @@index([projectId, sprintId])
+  @@index([projectId, columnId, orderIndex])
   @@index([dueDate])
 }
 
@@ -171,14 +202,14 @@ enum TodoPriority {
 
 /// Personal to-do list: quick checklist items that live outside projects and sprints.
 model Todo {
-  id        String    @id @default(uuid())
+  id        String       @id @default(uuid())
   title     String
-  done      Boolean   @default(false)
+  done      Boolean      @default(false)
   doneAt    DateTime?
   dueDate   DateTime?
   priority  TodoPriority @default(LOW)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@index([done, createdAt])
 }

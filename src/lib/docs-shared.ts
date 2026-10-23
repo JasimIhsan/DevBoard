@@ -10,12 +10,12 @@ export interface DocMeta { slug: string; title: string; description: string; gro
 /** Navigation order. Each entry maps to `src/content/docs/<slug>.md`. */
 export const DOCS: DocMeta[] = [
   { group: "Getting started", slug: "welcome", title: "Welcome", description: "What DevBoard is and how the docs are organised." },
-  { group: "Getting started", slug: "quickstart", title: "Quickstart", description: "Create a project, plan a sprint and ship your first task in five minutes." },
+  { group: "Getting started", slug: "quickstart", title: "Quickstart", description: "Create a project, add tasks and move them across the board in five minutes." },
   { group: "Getting started", slug: "concepts", title: "Core concepts", description: "A glossary of every term used in DevBoard." },
   { group: "Features", slug: "projects", title: "Projects", description: "Create, star, archive and delete projects." },
   { group: "Features", slug: "tasks", title: "Tasks", description: "Fields, subtasks, comments and activity." },
-  { group: "Features", slug: "board", title: "Kanban board", description: "Columns, drag and drop, and filters." },
-  { group: "Features", slug: "backlog-sprints", title: "Backlog & sprints", description: "Plan work and run time-boxed sprints." },
+  { group: "Features", slug: "board", title: "Kanban board", description: "Columns, custom stages, drag and drop, and archiving." },
+  { group: "Features", slug: "backlog", title: "Backlog & archive", description: "Collect work, move it to the board, and archive what is done." },
   { group: "Features", slug: "import-csv", title: "Import from CSV", description: "Bring many tasks in at once." },
   { group: "Features", slug: "dashboard", title: "Dashboard & all-projects board", description: "See everything across projects." },
   { group: "Features", slug: "todos", title: "To-dos", description: "A quick personal checklist, one tap away." },
@@ -32,5 +32,5 @@ export const DOCS: DocMeta[] = [
 
 export const DOC_GROUPS: DocNavGroup[] = [...new Set(DOCS.map((d) => d.group))].map((group) => ({ group, items: DOCS.filter((d) => d.group === group) }));
 
-/** For the command palette: page title plus group so searches like "mcp" or "sprint" find pages. */
+/** For the command palette: page title plus group so searches like "mcp" or "archive" find pages. */
 export const DOC_LINKS = DOCS.map((d) => ({ slug: d.slug, title: d.title, search: `${d.title} ${d.group} ${d.description}`.toLowerCase() }));

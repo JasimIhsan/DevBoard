@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { badRequest } from "@/lib/api-utils";
+import { DEFAULT_COLUMNS } from "@/lib/constants";
+import { ORDER_STEP } from "@/lib/ordering";
 import { serializeProject } from "@/lib/serialize";
 import { getProjects } from "@/lib/data";
 import { createProjectSchema } from "@/lib/validators";
@@ -19,8 +21,8 @@ export async function POST(req: NextRequest) {
   const project = await db.project.create({
     data: {
       ...parsed.data,
-      // A fresh project gets a draft sprint so tasks can be planned straight away.
-      sprints: { create: { name: "Sprint 1", status: "DRAFT" } },
+      // Every project starts with To Do, In Progress and Done; more columns can be added from the board.
+      columns: { create: DEFAULT_COLUMNS.map((c, i) => ({ name: c.name, category: c.category, orderIndex: (i + 1) * ORDER_STEP })) },
     },
   });
   return NextResponse.json(serializeProject(project), { status: 201 });

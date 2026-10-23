@@ -1,4 +1,4 @@
-**To-dos** are a personal checklist for quick things: "call the bank", "review Sam's PR", "buy cables". They are separate from project tasks, so they don't need a project, sprint or status.
+**To-dos** are a personal checklist for quick things: "call the bank", "review Sam's PR", "buy cables". They are separate from project tasks, so they don't need a project, a column or a status.
 
 ## When to use a to-do
 
@@ -6,7 +6,7 @@
 | --- | --- |
 | Small personal reminders. | Work that belongs to a project. |
 | Things you tick off and forget. | Work you plan, estimate and track on a board. |
-| Anything that doesn't need a sprint. | Anything with subtasks, comments or a branch. |
+| Anything that doesn't belong to a project. | Anything with subtasks, comments or a branch. |
 
 ## Open your to-dos from anywhere
 

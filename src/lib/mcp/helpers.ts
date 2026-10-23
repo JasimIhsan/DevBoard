@@ -1,7 +1,8 @@
 import { ApiError, type ApiFn } from "./api";
 
-export const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const;
-export const BOARD_STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const;
+/** Task status as a category: BACKLOG (not on the board) or the category of the board column the task is in. */
+export const STATUSES = ["BACKLOG", "TODO", "IN_PROGRESS", "DONE"] as const;
+export const CATEGORIES = ["TODO", "IN_PROGRESS", "DONE"] as const;
 export const PRIORITIES = ["P0", "P1", "P2", "P3"] as const;
 export const TYPES = ["FEATURE", "BUG", "CHORE", "SPIKE"] as const;
 const PRIORITY_RANK: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
@@ -24,21 +25,23 @@ export const guarded = <A>(fn: (args: A) => Promise<unknown>) => async (args: A)
 
 /* ---------- shapes ---------- */
 export interface TaskDto {
-  id: string; key: string; projectKey: string; sprintId: string | null; title: string; description: string;
+  id: string; key: string; projectKey: string; columnId: string | null; columnName: string | null; title: string; description: string;
   status: string; priority: string; type: string; branchName: string | null; prUrl: string | null; labels: string[];
   estimate: number | null; dueDate: string | null; subtasksDone: number; subtasksTotal: number; updatedAt: string; completedAt: string | null;
+  archivedAt: string | null; orderIndex: number;
 }
-export interface SprintDto { id: string; name: string; goal: string | null; status: "DRAFT" | "ACTIVE" | "COMPLETED"; startDate: string | null; endDate: string | null }
+export interface ColumnDto { id: string; name: string; category: "TODO" | "IN_PROGRESS" | "DONE"; orderIndex: number }
 
 /** Compact task view for lists: enough to decide what to do, without the description or history. */
-export function slimTask(t: TaskDto, sprints?: SprintDto[]) {
+export function slimTask(t: TaskDto) {
   return {
     key: t.key,
     title: t.title,
+    column: t.columnName ?? "Backlog",
     status: t.status,
+    archived: !!t.archivedAt,
     priority: t.priority,
     type: t.type,
-    sprint: t.sprintId ? sprints?.find((s) => s.id === t.sprintId)?.name ?? t.sprintId : null,
     estimate: t.estimate,
     dueDate: t.dueDate?.slice(0, 10) ?? null,
     labels: t.labels,
@@ -59,49 +62,52 @@ export function toIso(d: string | null | undefined): string | null | undefined {
 
 export const upper = (k: string) => k.trim().toUpperCase();
 
-/* ---------- sprints ---------- */
-export const getSprints = (api: ApiFn, projectKey: string) => api<SprintDto[]>("GET", `/api/projects/${upper(projectKey)}/sprints`);
+/* ---------- columns ---------- */
+export const getColumns = (api: ApiFn, projectKey: string) => api<ColumnDto[]>("GET", `/api/projects/${upper(projectKey)}/columns`);
 
-const describeSprints = (sprints: SprintDto[]) => sprints.length ? sprints.map((s) => `"${s.name}" (${s.status})`).join(", ") : "none yet";
+const describeColumns = (columns: ColumnDto[]) => columns.map((c) => `"${c.name}" (${c.category})`).join(", ") || "none";
 
-/** Finds a sprint by id or name. Accepts "active" for the active sprint. */
-export function findSprint(sprints: SprintDto[], ref: string): SprintDto {
+const CATEGORY_WORDS: Record<string, ColumnDto["category"]> = {
+  todo: "TODO", to_do: "TODO", "to do": "TODO", in_progress: "IN_PROGRESS", "in progress": "IN_PROGRESS", doing: "IN_PROGRESS", done: "DONE",
+};
+
+/**
+ * Finds a board column by id or name (case-insensitive, unique partial match allowed). A bare status word such as
+ * "DONE" or "IN_PROGRESS" means the first column with that category, so simple requests work in every project.
+ */
+export function findColumn(columns: ColumnDto[], ref: string): ColumnDto {
   const r = ref.trim();
-  if (r.toLowerCase() === "active") {
-    const a = sprints.find((s) => s.status === "ACTIVE");
-    if (!a) throw new ApiError(404, `This project has no active sprint. Sprints: ${describeSprints(sprints)}. Start one with start_sprint.`);
-    return a;
-  }
-  const byId = sprints.find((s) => s.id === r);
+  const byId = columns.find((c) => c.id === r);
   if (byId) return byId;
-  const exact = sprints.filter((s) => s.name.toLowerCase() === r.toLowerCase());
+  const exact = columns.filter((c) => c.name.toLowerCase() === r.toLowerCase());
   if (exact.length === 1) return exact[0];
-  const partial = sprints.filter((s) => s.name.toLowerCase().includes(r.toLowerCase()));
+  const cat = CATEGORY_WORDS[r.toLowerCase()];
+  const byCategory = cat ? columns.find((c) => c.category === cat) : undefined;
+  if (byCategory) return byCategory;
+  const partial = columns.filter((c) => c.name.toLowerCase().includes(r.toLowerCase()));
   if (partial.length === 1) return partial[0];
-  throw new ApiError(404, `No sprint matches "${ref}". Sprints: ${describeSprints(sprints)}.`);
+  throw new ApiError(404, `No column matches "${ref}". Columns: ${describeColumns(columns)}. Use "backlog" for the backlog.`);
 }
 
-/** sprint reference → sprintId | null (backlog). "backlog" / "none" / null mean no sprint. */
-export async function resolveSprintRef(api: ApiFn, projectKey: string, ref: string | null | undefined): Promise<string | null> {
+/** Column reference → columnId, or null for the backlog ("backlog" / "none" / null). */
+export async function resolveColumnRef(api: ApiFn, projectKey: string, ref: string | null | undefined): Promise<string | null> {
   if (ref === null || ref === undefined || /^(backlog|none|null)$/i.test(ref.trim())) return null;
-  return findSprint(await getSprints(api, projectKey), ref).id;
+  return findColumn(await getColumns(api, projectKey), ref).id;
 }
 
 /* ---------- tasks ---------- */
 export const getTask = (api: ApiFn, key: string) => api<any>("GET", `/api/tasks/${encodeURIComponent(upper(key))}`);
 
 /**
- * Moves a task to another board column and puts it at the top or bottom of that column.
- * Positions are per project+sprint+status lane, so neighbours are looked up in that lane.
+ * Moves a task into a board column (or back to the backlog with columnId null) and puts it at the top or bottom.
+ * Positions are per project+column, so neighbours are looked up in that column.
  */
-export async function moveToStatus(api: ApiFn, task: TaskDto, status: string, position: "top" | "bottom" = "bottom") {
-  if (status !== "BACKLOG" && !task.sprintId) {
-    throw new ApiError(409, `${task.key} is in the backlog (no sprint), so it has no board column. Put it in a sprint first: update_task with sprint "active" (or a sprint name).`);
-  }
-  const lane = (await api<TaskDto[]>("GET", `/api/tasks?projectKey=${task.projectKey}&sprintId=${task.sprintId ?? "none"}&status=${status}&limit=1000`))
+export async function moveToColumn(api: ApiFn, task: TaskDto, columnId: string | null, position: "top" | "bottom" = "bottom") {
+  if (columnId === null) return api<TaskDto>("PATCH", `/api/tasks/${task.id}`, { columnId: null });
+  const lane = (await api<TaskDto[]>("GET", `/api/tasks?projectKey=${task.projectKey}&columnId=${columnId}&limit=1000`))
     .filter((t) => t.id !== task.id)
-    .sort((a: any, b: any) => a.orderIndex - b.orderIndex);
+    .sort((a, b) => a.orderIndex - b.orderIndex);
   const prev = position === "bottom" ? lane.at(-1) : undefined;
   const next = position === "top" ? lane[0] : undefined;
-  return api<TaskDto>("PATCH", `/api/tasks/${task.id}/reorder`, { newStatus: status, prevTaskId: prev?.id ?? null, nextTaskId: next?.id ?? null });
+  return api<TaskDto>("PATCH", `/api/tasks/${task.id}/reorder`, { columnId, prevTaskId: prev?.id ?? null, nextTaskId: next?.id ?? null });
 }

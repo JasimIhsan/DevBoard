@@ -1,15 +1,15 @@
 import { PRIORITIES, TASK_TYPES } from "./constants";
-import type { Priority, TaskStatus, TaskType } from "./types";
+import type { Priority, TaskType } from "./types";
 
 /** Column order for the CSV template. Header matching is case/space-insensitive. */
-export const CSV_COLUMNS = ["title", "description", "type", "priority", "status", "sprint", "labels", "estimate", "due_date"] as const;
+export const CSV_COLUMNS = ["title", "description", "type", "priority", "column", "labels", "estimate", "due_date"] as const;
 
 export const CSV_TEMPLATE = [
   CSV_COLUMNS.join(","),
-  `"Add rate limiting to public API","Return 429 with Retry-After header",FEATURE,P1,TODO,Sprint 1,"api, security",3,2026-11-01`,
-  `"Fix flaky login test","Fails on CI about 1 in 5 runs",BUG,P0,IN_PROGRESS,Sprint 1,ci,1,`,
-  `"Upgrade Prisma to v7",,CHORE,P3,,,"deps",2,`,
-  `"Evaluate edge caching for dashboard","Spike: measure p95 before/after",SPIKE,P2,,Sprint 2,perf,,2026-11-15`,
+  `"Add rate limiting to public API","Return 429 with Retry-After header",FEATURE,P1,To Do,"api, security",3,2026-11-01`,
+  `"Fix flaky login test","Fails on CI about 1 in 5 runs",BUG,P0,In Progress,ci,1,`,
+  `"Upgrade Prisma to v7",,CHORE,P3,,"deps",2,`,
+  `"Evaluate edge caching for dashboard","Spike: measure p95 before/after",SPIKE,P2,,perf,,2026-11-15`,
 ].join("\n");
 
 export interface CsvTaskRow {
@@ -17,9 +17,8 @@ export interface CsvTaskRow {
   description?: string;
   type?: TaskType;
   priority?: Priority;
-  status?: TaskStatus;
-  /** Sprint name; empty means Backlog. */
-  sprint?: string;
+  /** Board column name; empty means Backlog. */
+  column?: string;
   labels?: string[];
   estimate?: number | null;
   dueDate?: string | null;
@@ -67,18 +66,18 @@ const HEADER_ALIASES: Record<string, (typeof CSV_COLUMNS)[number]> = {
   description: "description", desc: "description", details: "description",
   type: "type", kind: "type",
   priority: "priority", prio: "priority",
-  status: "status", state: "status",
-  sprint: "sprint", iteration: "sprint",
+  column: "column", status: "column", state: "column", list: "column",
   labels: "labels", label: "labels", tags: "labels",
   estimate: "estimate", points: "estimate", story_points: "estimate",
   due_date: "due_date", due: "due_date", deadline: "due_date",
 };
 
-const STATUS_ALIASES: Record<string, TaskStatus> = {
-  backlog: "BACKLOG", todo: "TODO", to_do: "TODO", open: "TODO",
-  in_progress: "IN_PROGRESS", doing: "IN_PROGRESS", inprogress: "IN_PROGRESS",
-  in_review: "IN_REVIEW", review: "IN_REVIEW", inreview: "IN_REVIEW",
-  done: "DONE", closed: "DONE", complete: "DONE", completed: "DONE",
+/** Older files used fixed statuses; map them onto the default column names. */
+const LEGACY_STATUS: Record<string, string> = {
+  backlog: "", todo: "To Do", to_do: "To Do", open: "To Do",
+  in_progress: "In Progress", doing: "In Progress", inprogress: "In Progress",
+  in_review: "In Review", review: "In Review", inreview: "In Review",
+  done: "Done", closed: "Done", complete: "Done", completed: "Done",
 };
 
 function parseDate(v: string): string | null | "invalid" {
@@ -123,14 +122,12 @@ export function parseTasksCsv(text: string): CsvParseResult {
       if (!(PRIORITIES as readonly string[]).includes(priority)) return errors.push(`Row ${line}: unknown priority "${get("priority")}" (use ${PRIORITIES.join(", ")})`);
       row.priority = priority as Priority;
     }
-    const status = get("status");
-    if (status) {
-      const s = STATUS_ALIASES[normalizeHeader(status)];
-      if (!s) return errors.push(`Row ${line}: unknown status "${status}" (use BACKLOG, TODO, IN_PROGRESS, IN_REVIEW, DONE)`);
-      row.status = s;
+    const column = get("column");
+    if (column) {
+      const legacy = LEGACY_STATUS[normalizeHeader(column)];
+      const name = legacy !== undefined ? legacy : column;
+      if (name) row.column = name.slice(0, 40);
     }
-    const sprint = get("sprint");
-    if (sprint) row.sprint = sprint.slice(0, 80);
 
     const labels = get("labels").split(/[,;|]/).map((l) => l.trim().toLowerCase()).filter(Boolean);
     if (labels.some((l) => l.length > 24)) return errors.push(`Row ${line}: labels must be 24 characters or fewer`);
@@ -153,13 +150,13 @@ export function parseTasksCsv(text: string): CsvParseResult {
   return { rows, errors, unknownColumns };
 }
 
-/** Groups rows by sprint name, Backlog first, preserving first-seen sprint order. */
-export function groupBySprint(rows: CsvTaskRow[]) {
+/** Groups rows by column name, Backlog first, preserving first-seen column order. */
+export function groupByColumn(rows: CsvTaskRow[]) {
   const groups = new Map<string, CsvTaskRow[]>([["", []]]);
   for (const r of rows) {
-    const k = r.sprint ?? "";
+    const k = r.column ?? "";
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k)!.push(r);
   }
-  return [...groups.entries()].filter(([, list]) => list.length > 0).map(([sprint, list]) => ({ sprint, tasks: list }));
+  return [...groups.entries()].filter(([, list]) => list.length > 0).map(([column, list]) => ({ column, tasks: list }));
 }

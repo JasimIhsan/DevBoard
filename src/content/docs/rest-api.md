@@ -10,29 +10,31 @@ All bodies are JSON. Errors look like `{ "error": "message" }` with a status of 
 | --- | --- | --- |
 | `GET` | `/api/projects` | List projects. |
 | `POST` | `/api/projects` | Create a project (`name`, `key`, optional `description`, `color`). |
-| `GET` | `/api/projects/:key` | Project with its sprints and tasks. |
+| `GET` | `/api/projects/:key` | Project with its columns and tasks (archived tasks included, marked with `archivedAt`). |
 | `PATCH` | `/api/projects/:key` | Edit; set `archived` or `starred`. |
 | `DELETE` | `/api/projects/:key` | Delete the project and its data. |
-| `POST`, `PATCH`, `DELETE` | `/api/projects/:key/sprints` | Create, start, complete, update or delete sprints. |
+| `GET`, `POST` | `/api/projects/:key/columns` | List or add board columns (`name`, `category`: `TODO`, `IN_PROGRESS`, `DONE`). |
+| `PATCH`, `DELETE` | `/api/projects/:key/columns/:columnId` | Rename, change category, move (`direction`), or delete (`?moveTo=<columnId>`). |
+| `POST` | `/api/projects/:key/columns/:columnId/archive` | Archive every task in a Done column. |
 
 ## Tasks
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/tasks` | List and search (`projectKey`, `q`, `status`, `sprintId`, `limit`). |
-| `POST` | `/api/tasks` | Create a task. |
+| `GET` | `/api/tasks` | List and search (`projectKey`, `q`, `status`, `columnId` or `none` for the backlog, `archived=include|only`, `limit`). Archived tasks are left out by default. |
+| `POST` | `/api/tasks` | Create a task. Goes to the backlog unless `columnId` is given. |
 | `GET` | `/api/tasks/:id` | Task with subtasks, comments and activity. `:id` may be a key like `CORE-12`. |
-| `PATCH` | `/api/tasks/:id` | Update fields. |
+| `PATCH` | `/api/tasks/:id` | Update fields. `columnId` moves it (null = backlog); `archived: true/false` archives or restores a done task. |
 | `DELETE` | `/api/tasks/:id` | Delete. |
-| `PATCH` | `/api/tasks/:id/reorder` | Move and reorder: `{ newStatus, prevTaskId, nextTaskId }`. |
+| `PATCH` | `/api/tasks/:id/reorder` | Drop into a column between neighbours: `{ columnId, prevTaskId, nextTaskId }`. |
 | `POST`, `PATCH`, `DELETE` | `/api/tasks/:id/subtasks` | Manage subtasks. |
 | `POST`, `DELETE` | `/api/tasks/:id/comments` | Manage comments. |
-| `POST` | `/api/tasks/import` | Bulk import: `{ projectKey, tasks: [...] }`. |
+| `POST` | `/api/tasks/import` | Bulk import: `{ projectKey, tasks: [...] }`. Each task may have a `column` name. |
 
 ## Example
 
 ```bash
-curl -s {{APP_URL}}/api/tasks?projectKey=CORE&status=IN_PROGRESS
+curl -s "{{APP_URL}}/api/tasks?projectKey=CORE&status=IN_PROGRESS"
 ```
 
 ```bash

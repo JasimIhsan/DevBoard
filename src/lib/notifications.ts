@@ -16,11 +16,10 @@ export interface PendingNotification extends PushPayload {
   fromHour: number;
 }
 
-export interface OpenTask { key: string; title: string; status: string; priority: string; dueDate: Date | null; projectKey: string; sprintId: string | null }
+export interface OpenTask { key: string; title: string; status: string; priority: string; dueDate: Date | null; projectKey: string }
 export interface OpenTodo { title: string; priority: string; dueDate: Date | null }
-export interface ActiveSprint { id: string; name: string; projectKey: string; endDate: Date | null }
 export interface ProjectActivity { key: string; name: string; lastActivity: Date; openTasks: number }
-export interface Snapshot { tasks: OpenTask[]; todos: OpenTodo[]; sprints: ActiveSprint[]; projects: ProjectActivity[] }
+export interface Snapshot { tasks: OpenTask[]; todos: OpenTodo[]; projects: ProjectActivity[] }
 
 export const QUIET_FROM = 7; // local hours in which notifications may be sent
 export const QUIET_UNTIL = 21;
@@ -66,19 +65,6 @@ export function buildNotifications(s: Snapshot, now: Date, tz: string, staleDays
     out.push({ key: `evening:${today}`, fromHour: 16, tag: "evening", url: tasksToday.length ? "/" : "/todos", title: `Still pending today: ${counts(tasksToday, todosToday)}`, body: list([...tasksToday.map(label), ...todosToday.map((t) => t.title)]) });
   }
 
-  for (const sp of s.sprints) {
-    const end = dueDay(sp.endDate);
-    if (!end) continue;
-    const left = dayNumber(end) - dayNumber(today);
-    if (left > 1) continue;
-    const open = s.tasks.filter((t) => t.sprintId === sp.id).length;
-    out.push({
-      key: `sprint:${sp.id}:${today}`, fromHour: QUIET_FROM, tag: `sprint-${sp.id}`, url: `/projects/${sp.projectKey}/board`,
-      title: `${sp.projectKey} · ${sp.name} ${left < 0 ? `ended ${plural(-left, "day")} ago` : left === 0 ? "ends today" : "ends tomorrow"}`,
-      body: open ? `${plural(open, "task")} still open. Complete the sprint or move work forward.` : "All tasks are done. Complete the sprint.",
-    });
-  }
-
   for (const p of s.projects) {
     const days = dayNumber(today) - dayNumber(localDay(p.lastActivity, tz));
     if (days < staleDays || p.openTasks === 0) continue;
@@ -88,15 +74,14 @@ export function buildNotifications(s: Snapshot, now: Date, tz: string, staleDays
 }
 
 export async function loadSnapshot(): Promise<Snapshot> {
-  const [tasks, todos, sprints, projects, byProject, comments] = await Promise.all([
-    db.task.findMany({ where: { status: { not: "DONE" }, project: { archivedAt: null } }, select: { taskNumber: true, title: true, status: true, priority: true, dueDate: true, sprintId: true, project: { select: { key: true } } } }),
+  const [tasks, todos, projects, byProject, comments] = await Promise.all([
+    db.task.findMany({ where: { status: { not: "DONE" }, project: { archivedAt: null } }, select: { taskNumber: true, title: true, status: true, priority: true, dueDate: true, project: { select: { key: true } } } }),
     db.todo.findMany({ where: { done: false }, select: { title: true, priority: true, dueDate: true } }),
-    db.sprint.findMany({ where: { status: "ACTIVE", project: { archivedAt: null } }, select: { id: true, name: true, endDate: true, project: { select: { key: true } } } }),
     db.project.findMany({ where: { archivedAt: null }, select: { id: true, key: true, name: true, createdAt: true } }),
     db.task.groupBy({ by: ["projectId"], _max: { updatedAt: true } }),
     db.comment.findMany({ orderBy: { createdAt: "desc" }, take: 200, select: { createdAt: true, task: { select: { projectId: true } } } }),
   ]);
-  const activeStatuses = new Set(["TODO", "IN_PROGRESS", "IN_REVIEW"]);
+  const activeStatuses = new Set(["TODO", "IN_PROGRESS"]);
   const lastByProject = new Map<string, Date>();
   const bump = (id: string, d: Date | null | undefined) => { if (d && (!lastByProject.get(id) || d > lastByProject.get(id)!)) lastByProject.set(id, d); };
   byProject.forEach((g) => bump(g.projectId, g._max.updatedAt));
@@ -105,9 +90,8 @@ export async function loadSnapshot(): Promise<Snapshot> {
   tasks.forEach((t) => { if (activeStatuses.has(t.status)) openByKey.set(t.project.key, (openByKey.get(t.project.key) ?? 0) + 1); });
 
   return {
-    tasks: tasks.map((t) => ({ key: `${t.project.key}-${t.taskNumber}`, title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate, projectKey: t.project.key, sprintId: t.sprintId })),
+    tasks: tasks.map((t) => ({ key: `${t.project.key}-${t.taskNumber}`, title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate, projectKey: t.project.key })),
     todos,
-    sprints: sprints.map((s) => ({ id: s.id, name: s.name, projectKey: s.project.key, endDate: s.endDate })),
     projects: projects.map((p) => ({ key: p.key, name: p.name, lastActivity: lastByProject.get(p.id) ?? p.createdAt, openTasks: openByKey.get(p.key) ?? 0 })),
   };
 }

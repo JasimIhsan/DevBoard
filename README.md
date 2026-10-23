@@ -12,22 +12,22 @@ createdb devboard                 # or: psql -c 'CREATE DATABASE devboard'
 npm run dev                       # open http://localhost:3000
 ```
 
-With no `DATABASE_URL` yet, the app opens on a **Connect a database** dialog: paste the connection string, it is tested, saved to `.env`, and the Prisma migrations are applied from the same dialog. `npm run db:seed` adds sample data (2 projects, sprints, tasks).
+With no `DATABASE_URL` yet, the app opens on a **Connect a database** dialog: paste the connection string, it is tested, saved to `.env`, and the Prisma migrations are applied from the same dialog. `npm run db:seed` adds sample data (2 projects with board columns, tasks).
 
 The manual route still works: `cp .env.example .env`, edit `DATABASE_URL`, then `npx prisma migrate dev`.
 
 ## Features
 
-- **Dashboard** — stats, active-sprint progress across projects, in-progress work, due-soon/overdue, recently done.
-- **Projects** (`/projects`) — manage every project in one place: progress, active sprint and activity at a glance; edit name, description and color (the key is permanent); delete with typed confirmation.
+- **Dashboard** — stats, a board card per project (tasks per column, backlog size, progress), in-progress work, due-soon/overdue, recently done.
+- **Projects** (`/projects`) — manage every project in one place: progress, tasks per column and activity at a glance; edit name, description and color (the key is permanent); delete with typed confirmation.
 - **Star** — star a project (sidebar row or Projects page) to pin it in a **Starred** group at the top of the sidebar; starred projects sort first everywhere.
-- **Archive** — hide a finished project without deleting it. Archived projects disappear from the sidebar, dashboard, all-projects board, search and Recent, and live under **Projects → Archived**. Their pages stay viewable with a banner and a Restore button; new tasks, sprints and CSV imports are blocked (the API returns 409). Archiving removes the star.
+- **Archive** — hide a finished project without deleting it. Archived projects disappear from the sidebar, dashboard, all-projects board, search and Recent, and live under **Projects → Archived**. Their pages stay viewable with a banner and a Restore button; new tasks, columns and CSV imports are blocked (the API returns 409). Archiving removes the star.
 - **Recent** — a Jira-style sidebar flyout (searchable, grouped Today / Yesterday / Earlier) plus a short inline list of the projects you opened or worked in (one row per project), each shown with its project's icon. It is **stored on the server and shared by every device** that opens this app (there are no accounts, so it is one global list): it follows you from your computer to your phone, works offline from a local cache, and queues visits until you're back online.
-- **All projects board** (`/board`) — one Kanban over the active sprints of every project: project-colored cards, project chips to show/hide projects, shared filters; drag a card between columns to change its status (cards sort by priority across projects).
+- **All projects board** (`/board`) — one Kanban over the boards of every project with three status lanes (to do / in progress / done): project-colored cards that also show their own column name, project chips to show/hide projects, shared filters; dragging a card to another lane moves it to the first column of that type in its project.
 - **Kanban board** (`/projects/KEY/board`) — dnd-kit drag & drop with optimistic updates on desktop (≥1024px);
   segmented column tabs with snap scrolling, quick-move bottom sheet and a floating “+” on mobile.
-- **Backlog grooming** (`/projects/KEY/backlog`) — sprint sections, drag tasks between sprints/backlog,
-  inline quick-add, start / complete (with carry-over) / delete sprints.
+- **Backlog** (`/projects/KEY/backlog`) — where work starts: quick-add, multi-select (checkboxes, Shift/Ctrl-click) and **Move to board**; done work you've archived is listed in an **Archived** section below it, with Restore.
+- **Board columns** — every project starts with To Do / In Progress / Done and can add its own (Review, QA, …). Each column has a type (to do / in progress / done) used by the dashboard and the "done" rules; rename, reorder (move left/right), delete (tasks move to a column you choose). Done tasks can be **archived** one by one or per column.
 - **Task detail** (`?task=CORE-12`, linkable) — Markdown description, subtasks with progress, comments,
   activity log, labels, estimate, due date, PR link, auto-generated git branch + copy `git checkout -b`.
 - **Command palette** — `⌘K` / `Ctrl+K`: jump to projects, search tasks by key or title, create task/project. Press `c` anywhere to create a task.
@@ -36,7 +36,7 @@ The manual route still works: `cp .env.example .env`, edit `DATABASE_URL`, then 
 
 - **To-dos:** a personal checklist outside projects, available everywhere: top-bar icon (desktop), floating button (phone), `T` key, ⌘K and `/todos`.
 
-- **Push notifications:** reminders for due today, overdue, urgent (P0 / high-priority to-dos), sprints ending and quiet projects, via the service worker (Web Push). Turn on per device from the bell icon. Needs `VAPID_*` keys and a scheduler hitting `/api/cron/notify` (Vercel Cron is configured in `vercel.json`). See `/docs/notifications`.
+- **Push notifications:** reminders for due today, overdue, urgent (P0 / high-priority to-dos) and quiet projects, via the service worker (Web Push). Turn on per device from the bell icon. Needs `VAPID_*` keys and a scheduler hitting `/api/cron/notify` (Vercel Cron is configured in `vercel.json`). See `/docs/notifications`.
 
 ## Documentation and MCP
 
@@ -51,13 +51,13 @@ The manual route still works: `cp .env.example .env`, edit `DATABASE_URL`, then 
 
 | Route | Purpose |
 | --- | --- |
-| `GET/POST /api/tasks` | List (`projectKey`, `sprintId`, `status`, `q`, `sort`, `limit`) / create |
+| `GET/POST /api/tasks` | List (`projectKey`, `columnId` or `none`, `status`, `archived`, `q`, `sort`, `limit`) / create (backlog unless `columnId`) |
 | `GET/PATCH/DELETE /api/tasks/:id` | `:id` is a UUID or a key such as `CORE-12` |
-| `PATCH /api/tasks/:id/reorder` | `{ newStatus, prevTaskId, nextTaskId }` — single-row fractional reorder |
+| `PATCH /api/tasks/:id/reorder` | `{ columnId, prevTaskId, nextTaskId }` — single-row fractional reorder |
 | `POST/PATCH/DELETE /api/tasks/:id/subtasks` | Checklist items |
 | `POST/DELETE /api/tasks/:id/comments` | Notes |
-| `GET/POST /api/projects` · `GET/DELETE /api/projects/:key` | Projects (`GET :key` returns project + sprints + tasks) |
-| `GET/POST/PATCH /api/projects/:key/sprints` | Sprint lifecycle: `start`, `complete`, `update`, `delete` |
+| `GET/POST /api/projects` · `GET/DELETE /api/projects/:key` | Projects (`GET :key` returns project + columns + tasks) |
+| `GET/POST /api/projects/:key/columns` · `PATCH/DELETE …/columns/:id` · `POST …/columns/:id/archive` | Board columns: add, rename/retype/move, delete (`?moveTo=`), archive a Done column |
 
 ## Layout
 
