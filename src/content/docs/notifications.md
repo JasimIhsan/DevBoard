@@ -59,7 +59,7 @@ Push needs a one-time setup by whoever hosts DevBoard.
 3. **Schedule the reminders.** DevBoard checks what is due when `/api/cron/notify` is called. On Vercel, `vercel.json` already schedules it twice a day (09:00 and 18:00 India time, written in UTC). Change the times there to suit you. Any scheduler can call it instead:
 
    ```bash
-   curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-app.vercel.app/api/cron/notify
+   curl -H "Authorization: Bearer YOUR_CRON_SECRET" {{APP_URL}}/api/cron/notify
    ```
 
 > **Tip** Add `?dry=1` to preview what would be sent without sending anything, or `?force=1` to send ignoring quiet hours and history. Both need the `CRON_SECRET`.

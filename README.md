@@ -42,7 +42,8 @@ The manual route still works: `cp .env.example .env`, edit `DATABASE_URL`, then 
 
 - **In-app docs:** open **Help & docs** in the sidebar (or `/docs`). Short pages cover every feature; the Markdown sources live in `src/content/docs/`, and the page order is the `DOCS` list in `src/lib/docs-shared.ts`.
 - **MCP server:** AI assistants (Claude, Gemini, Cursor, …) can read and manage tasks through 27 tools.
-  - HTTP: `http://localhost:3000/api/mcp` (Streamable HTTP). Optional `MCP_API_KEY` protects it.
+  - Easiest: **Connect AI (MCP)** in the sidebar shows this server's address with copy-paste snippets for Claude Code, Claude Desktop, Gemini CLI, Cursor and VS Code, plus a **Test connection** button.
+  - HTTP: `https://devboard.jasimihsan.in/api/mcp` (or `http://localhost:3000/api/mcp` locally), Streamable HTTP. Optional `MCP_API_KEY` protects it.
   - stdio: `npm run --silent mcp` (set `DEVBOARD_URL` if the app is not on :3000).
   - Setup per client, the tool list and security notes: `/docs/mcp-overview`.
 

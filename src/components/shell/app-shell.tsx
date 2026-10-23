@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import type { ProjectDTO } from "@/lib/types";
 import { UiProvider, useUi } from "@/components/ui-state";
 import { CreateTaskDialog } from "@/components/task/create-task-dialog";
+import { ConnectAiDialog } from "@/components/mcp/connect-ai-dialog";
 import { NotificationsDialog } from "@/components/notifications/notifications-dialog";
 import { syncPushSubscription, usePush } from "@/lib/push-client";
 import { toast } from "sonner";
@@ -121,6 +122,7 @@ function Shell({ projects: serverProjects, children }: { projects: ProjectDTO[];
       <CreateTaskDialog projects={active} />
       <CreateProjectDialog />
       <InstallDialog />
+      <ConnectAiDialog />
       <NotificationsDialog />
       <NotificationsNudge />
       <TodoSheet />

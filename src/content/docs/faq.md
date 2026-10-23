@@ -40,7 +40,7 @@ Install prompts need a production build served over HTTPS or localhost: run `npm
 
 ### My client says it cannot connect
 
-- Check DevBoard is running and open `http://localhost:3000` in a browser.
+- Check DevBoard is reachable: open `{{APP_URL}}` in a browser.
 - Confirm the URL ends in `/api/mcp`.
 - A `401` means `MCP_API_KEY` is set and the header is missing or wrong.
 - A `403` means a browser origin was blocked; add it to `MCP_ALLOWED_ORIGINS`.

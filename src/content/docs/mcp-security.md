@@ -1,6 +1,12 @@
 The MCP server can read and change all of your data, so decide who should be allowed to reach it.
 
-## Local use (default)
+## Hosted on the internet
+
+DevBoard at `{{APP_URL}}` can be reached by anyone who knows the address, and the app itself has no sign-in. That includes the MCP endpoint at `{{APP_URL}}/api/mcp`. If that matters to you, set an API key (next section) so only clients that hold it can use the MCP tools.
+
+> **Warning** `MCP_API_KEY` protects **only** `/api/mcp`. The app's pages and normal REST API (`/api/*`) stay open. To lock the whole site, use your host's access controls (for example Vercel Deployment Protection or a Cloudflare Access policy).
+
+## Running only on your computer
 
 When DevBoard runs on `localhost`, only programs on your own computer can reach the MCP endpoint. For personal use this is usually enough.
 

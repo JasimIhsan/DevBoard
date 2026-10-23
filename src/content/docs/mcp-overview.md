@@ -24,8 +24,8 @@ There are two ways to connect:
 
 | Transport | Best for | Address |
 | --- | --- | --- |
-| **HTTP** (Streamable HTTP) | Claude Code, Gemini CLI, Cursor, VS Code and most modern clients. | `http://localhost:3000/api/mcp` |
-| **stdio** | Clients that launch a local process, such as Claude Desktop. | `npm run --silent mcp` |
+| **HTTP** (Streamable HTTP) | Claude Code, Gemini CLI, Cursor, VS Code and most modern clients. | `{{APP_URL}}/api/mcp` |
+| **stdio** | Clients that launch a local process, if you run DevBoard from the source code. | `npm run --silent mcp` |
 
 ## Safe by design
 
@@ -35,6 +35,8 @@ There are two ways to connect:
 
 > **Tip** Start with a read-only request such as "list my projects" to confirm the connection works.
 
-## Next step
+## Connect in one minute
 
-Continue to [Connect a client](/docs/mcp-setup).
+The quickest way: open **Connect AI (MCP)** in the sidebar (or press `⌘K` and search "connect"). It shows this server's address and ready-to-copy snippets for Claude Code, Claude Desktop, Gemini CLI, Cursor, VS Code and other clients, with a **Test connection** button.
+
+Prefer reading first? Continue to [Connect a client](/docs/mcp-setup).

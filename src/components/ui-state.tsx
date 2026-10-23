@@ -18,6 +18,8 @@ interface UiState {
   setCreateProjectOpen: (v: boolean) => void;
   installOpen: boolean;
   setInstallOpen: (v: boolean) => void;
+  connectAiOpen: boolean;
+  setConnectAiOpen: (v: boolean) => void;
   notificationsOpen: boolean;
   setNotificationsOpen: (v: boolean) => void;
   todoOpen: boolean;
@@ -38,6 +40,7 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [todoOpen, setTodoOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [connectAiOpen, setConnectAiOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -68,6 +71,8 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
       setCreateProjectOpen,
       installOpen,
       setInstallOpen,
+      connectAiOpen,
+      setConnectAiOpen,
       notificationsOpen,
       setNotificationsOpen,
       todoOpen,
@@ -78,7 +83,7 @@ export function UiProvider({ children }: { children: React.ReactNode }) {
       closeTask,
       openTaskKey,
     }),
-    [createTask, createProjectOpen, installOpen, notificationsOpen, todoOpen, paletteOpen, openTask, closeTask, openTaskKey],
+    [createTask, createProjectOpen, installOpen, connectAiOpen, notificationsOpen, todoOpen, paletteOpen, openTask, closeTask, openTaskKey],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

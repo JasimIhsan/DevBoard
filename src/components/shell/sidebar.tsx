@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, LayoutDashboard, Bell, LifeBuoy, ListChecks, ListTodo, Plus, Settings2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Columns3, FolderKanban, LayoutDashboard, Bell, LifeBuoy, ListChecks, PlugZap, ListTodo, Plus, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProjectDTO } from "@/lib/types";
@@ -16,7 +16,7 @@ import { RecentMenu, useResolvedRecent } from "./recent-menu";
 
 export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { projects: ProjectDTO[]; collapsed: boolean; onToggle?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { setCreateProjectOpen, setNotificationsOpen } = useUi();
+  const { setCreateProjectOpen, setNotificationsOpen, setConnectAiOpen } = useUi();
   const todoCount = useOpenTodoCount();
   const currentKey = /^\/projects\/([^/]+)/.exec(pathname)?.[1]?.toUpperCase();
   // The few projects you touched most recently, each linking to where you last were in it.
@@ -126,6 +126,14 @@ export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { project
       </div>
 
       <div className="mt-auto space-y-1">
+        {(() => {
+          const btn = (
+            <button type="button" onClick={() => { setConnectAiOpen(true); onNavigate?.(); }} className={cn("flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent", collapsed && "justify-center px-0")}>
+              <PlugZap className="size-4" />{!collapsed && <span className="truncate">Connect AI (MCP)</span>}
+            </button>
+          );
+          return collapsed ? <Tooltip><TooltipTrigger asChild>{btn}</TooltipTrigger><TooltipContent side="right">Connect AI (MCP)</TooltipContent></Tooltip> : btn;
+        })()}
         {(() => {
           const btn = (
             <button type="button" onClick={() => { setNotificationsOpen(true); onNavigate?.(); }} className={cn("flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent", collapsed && "justify-center px-0")}>

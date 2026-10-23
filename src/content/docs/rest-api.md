@@ -32,11 +32,11 @@ All bodies are JSON. Errors look like `{ "error": "message" }` with a status of 
 ## Example
 
 ```bash
-curl -s http://localhost:3000/api/tasks?projectKey=CORE&status=IN_PROGRESS
+curl -s {{APP_URL}}/api/tasks?projectKey=CORE&status=IN_PROGRESS
 ```
 
 ```bash
-curl -s -X POST http://localhost:3000/api/tasks \
+curl -s -X POST {{APP_URL}}/api/tasks \
   -H "Content-Type: application/json" \
   -d '{"projectKey":"CORE","title":"Write release notes","priority":"P2"}'
 ```

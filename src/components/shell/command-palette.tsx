@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { usePwa } from "@/lib/pwa";
-import { BookOpen, Bell, Columns3, ListChecks, Download, Settings2, FolderKanban, LayoutDashboard, ListTodo, Plus, FolderPlus } from "lucide-react";
+import { BookOpen, Bell, PlugZap, Columns3, ListChecks, Download, Settings2, FolderKanban, LayoutDashboard, ListTodo, Plus, FolderPlus } from "lucide-react";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
 import { api } from "@/lib/client";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
@@ -13,7 +13,7 @@ import { DOC_LINKS } from "@/lib/docs-shared";
 import { PriorityBadge, StatusDot, TypeIcon } from "@/components/task/badges";
 
 export function CommandPalette({ projects }: { projects: ProjectDTO[] }) {
-  const { paletteOpen, setPaletteOpen: setOpen, openCreateTask, setCreateProjectOpen, setInstallOpen, setTodoOpen, setNotificationsOpen } = useUi();
+  const { paletteOpen, setPaletteOpen: setOpen, openCreateTask, setCreateProjectOpen, setInstallOpen, setTodoOpen, setNotificationsOpen, setConnectAiOpen } = useUi();
   const pwa = usePwa();
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -60,10 +60,11 @@ export function CommandPalette({ projects }: { projects: ProjectDTO[] }) {
         <CommandList className="max-h-[60dvh]">
           <CommandEmpty>No results.</CommandEmpty>
 
-          {(match("create new task") || match("create new project") || match("dashboard home") || match("manage projects settings edit delete") || match("central board all projects tasks") || match("help docs documentation guide") || match("todo to-do checklist reminder") || match("notifications push alerts reminders") || (!pwa.installed && match("install app pwa download"))) && <CommandGroup heading="Actions">
+          {(match("create new task") || match("create new project") || match("dashboard home") || match("manage projects settings edit delete") || match("central board all projects tasks") || match("help docs documentation guide") || match("todo to-do checklist reminder") || match("notifications push alerts reminders") || match("connect ai mcp claude gemini cursor assistant") || (!pwa.installed && match("install app pwa download"))) && <CommandGroup heading="Actions">
             {match("create new task") && <CommandItem value="action-new-task" onSelect={() => run(() => openCreateTask())}><Plus />Create task<CommandShortcut>C</CommandShortcut></CommandItem>}
             {match("todo to-do checklist reminder add") && <CommandItem value="action-todos" onSelect={() => run(() => setTodoOpen(true))}><ListChecks />Open to-dos<CommandShortcut>T</CommandShortcut></CommandItem>}
             {match("notifications push alerts reminders") && <CommandItem value="action-notifications" onSelect={() => run(() => setNotificationsOpen(true))}><Bell />Notifications</CommandItem>}
+            {match("connect ai mcp claude gemini cursor assistant") && <CommandItem value="action-connect-ai" onSelect={() => run(() => setConnectAiOpen(true))}><PlugZap />Connect AI assistant (MCP)</CommandItem>}
             {match("create new project") && <CommandItem value="action-new-project" onSelect={() => run(() => setCreateProjectOpen(true))}><FolderPlus />Create project</CommandItem>}
             {!pwa.installed && match("install app pwa download") && <CommandItem value="action-install" onSelect={() => run(() => setInstallOpen(true))}><Download />Install DevBoard as an app</CommandItem>}
             {match("manage projects settings edit delete") && <CommandItem value="nav-projects" onSelect={() => run(() => router.push("/projects"))}><Settings2 />Manage projects</CommandItem>}

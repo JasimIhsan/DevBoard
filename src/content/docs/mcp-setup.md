@@ -1,80 +1,58 @@
-Pick your client, copy the block, and replace the two values below. Every code block has a **copy** button.
+Every snippet below already uses this server's address, `{{APP_URL}}`, so you can copy and paste it as it is. Each code block has a **copy** button.
 
-## Your two values
+> **Tip** The fastest route is **Connect AI (MCP)** in the sidebar. It shows the same snippets, lets you paste an API key into them, and has a **Test connection** button.
 
-| Placeholder | Replace with |
-| --- | --- |
-| `DEVBOARD_URL` | Where DevBoard runs. Local: `http://localhost:3000`. Hosted: your site, for example `https://your-app.vercel.app`. |
-| `YOUR_KEY` | Your `MCP_API_KEY`. Only needed if you set one. See [MCP security](/docs/mcp-security). |
-
-The MCP endpoint is always the URL **plus `/api/mcp`**, for example `http://localhost:3000/api/mcp`.
-
-> **Tip** Make sure DevBoard is running before you connect (`npm run dev` locally). Run the commands below in a terminal, then **start a new session** in your client, because tools load when a session starts.
+After adding the server, **start a new session** in your client, because tools load when a session starts. Then ask: **"List my DevBoard projects."**
 
 ## Claude Code
 
-Without an API key:
-
 ```bash
-claude mcp add --transport http devboard http://localhost:3000/api/mcp
-```
-
-With an API key:
-
-```bash
-claude mcp add --transport http devboard http://localhost:3000/api/mcp \
-  --header "Authorization: Bearer YOUR_KEY"
+claude mcp add --transport http devboard {{APP_URL}}/api/mcp
 ```
 
 Available in every project on your machine (add `--scope user`):
 
 ```bash
-claude mcp add --scope user --transport http devboard http://localhost:3000/api/mcp
+claude mcp add --scope user --transport http devboard {{APP_URL}}/api/mcp
 ```
 
-Check it:
+If the server uses an API key (see [MCP security](/docs/mcp-security)):
 
 ```bash
-claude mcp list
+claude mcp add --transport http devboard {{APP_URL}}/api/mcp \
+  --header "Authorization: Bearer YOUR_KEY"
 ```
 
-You should see `devboard … ✔ Connected`. Remove it any time with `claude mcp remove devboard`.
+Check it with `claude mcp list`. You should see `devboard … ✔ Connected`. Remove it any time with `claude mcp remove devboard`.
 
 ## Claude Desktop
 
-Claude Desktop starts MCP servers as local programs. Open **Settings → Developer → Edit Config** and add the block that matches your setup, then restart the app.
-
-**DevBoard runs on your computer** (use absolute paths):
-
-```json
-{
-  "mcpServers": {
-    "devboard": {
-      "command": "/absolute/path/to/DevBoard/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/DevBoard/scripts/mcp-stdio.ts"],
-      "env": { "DEVBOARD_URL": "http://localhost:3000" }
-    }
-  }
-}
-```
-
-**DevBoard is hosted online** (needs Node.js; `mcp-remote` bridges to the HTTP endpoint):
+Open **Settings → Developer → Edit Config** and add this. It needs [Node.js](https://nodejs.org). Restart Claude Desktop afterwards.
 
 ```json
 {
   "mcpServers": {
     "devboard": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://your-app.vercel.app/api/mcp", "--header", "Authorization:${AUTH}"],
-      "env": { "AUTH": "Bearer YOUR_KEY" }
+      "args": ["-y", "mcp-remote", "{{APP_URL}}/api/mcp"]
     }
   }
 }
 ```
 
-Leave out `"--header", "Authorization:${AUTH}"` and the `env` block if you have no API key.
+With an API key:
 
-> **Warning** Don't use `npm run mcp` in this config. npm prints a banner that breaks the protocol. Use the `tsx` command above, or `npm run --silent mcp`.
+```json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "{{APP_URL}}/api/mcp", "--header", "Authorization:${AUTH}"],
+      "env": { "AUTH": "Bearer YOUR_KEY" }
+    }
+  }
+}
+```
 
 ## Gemini CLI
 
@@ -84,14 +62,13 @@ Add this to `~/.gemini/settings.json` (merge it into the existing `mcpServers` i
 {
   "mcpServers": {
     "devboard": {
-      "httpUrl": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_KEY" }
+      "httpUrl": "{{APP_URL}}/api/mcp"
     }
   }
 }
 ```
 
-Remove the `headers` line if you have no API key. Run `/mcp` inside Gemini CLI to see the tools.
+With an API key, add `"headers": { "Authorization": "Bearer YOUR_KEY" }` next to `httpUrl`. Run `/mcp` inside Gemini CLI to see the tools.
 
 ## Cursor
 
@@ -101,8 +78,7 @@ Create `.cursor/mcp.json` in a project, or `~/.cursor/mcp.json` for all projects
 {
   "mcpServers": {
     "devboard": {
-      "url": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_KEY" }
+      "url": "{{APP_URL}}/api/mcp"
     }
   }
 }
@@ -117,8 +93,7 @@ Create `.vscode/mcp.json`:
   "servers": {
     "devboard": {
       "type": "http",
-      "url": "http://localhost:3000/api/mcp",
-      "headers": { "Authorization": "Bearer YOUR_KEY" }
+      "url": "{{APP_URL}}/api/mcp"
     }
   }
 }
@@ -131,35 +106,43 @@ Most clients accept the same three facts. Look for "add MCP server" or an `mcp.j
 | Field | Value |
 | --- | --- |
 | Transport / type | `http` (also called *Streamable HTTP*) |
-| URL | `http://localhost:3000/api/mcp` |
-| Header | `Authorization: Bearer YOUR_KEY` (only with an API key) |
-
-If a client only supports local programs, use the stdio block from the Claude Desktop section.
+| URL | `{{APP_URL}}/api/mcp` |
+| Header | `Authorization: Bearer YOUR_KEY` (only if the server has an API key) |
 
 > **Note** Client configuration formats change over time. If an option is rejected, check the client's MCP documentation for the current syntax and reuse the same URL and header.
 
 ## Test the connection
 
-Ask your assistant: **"List my DevBoard projects."** It should call `list_projects` and show your project keys.
+Ask your assistant **"List my DevBoard projects"**, or use **Test connection** in the sidebar's **Connect AI (MCP)** dialog.
 
-To try tools by hand, use the MCP Inspector:
-
-```bash
-npx @modelcontextprotocol/inspector
-```
-
-Choose **Streamable HTTP**, paste the URL and click **Connect**.
-
-Or check from the terminal that the endpoint answers (this lists the tools):
+From a terminal, this lists the tools:
 
 ```bash
-curl -s http://localhost:3000/api/mcp \
+curl -s {{APP_URL}}/api/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-A `401` means the key is missing or wrong. Add `-H "Authorization: Bearer YOUR_KEY"`.
+A `401` means the server has an API key and yours is missing or wrong. To try tools by hand, use the MCP Inspector: `npx @modelcontextprotocol/inspector`, choose **Streamable HTTP**, and paste the URL.
+
+## Running DevBoard from source (stdio)
+
+If you run DevBoard yourself from its source code, clients that only launch local programs can use the stdio server. Point it at your DevBoard address with `DEVBOARD_URL`:
+
+```json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "/absolute/path/to/DevBoard/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/DevBoard/scripts/mcp-stdio.ts"],
+      "env": { "DEVBOARD_URL": "{{APP_URL}}" }
+    }
+  }
+}
+```
+
+> **Warning** Don't use `npm run mcp` in a client config. npm prints a banner that breaks the protocol. Use the `tsx` command above, or `npm run --silent mcp`.
 
 ## Settings
 
@@ -169,3 +152,4 @@ A `401` means the key is missing or wrong. Add `-H "Authorization: Bearer YOUR_K
 | `MCP_API_KEY` | HTTP | Require this key on every request. |
 | `MCP_ALLOWED_ORIGINS` | HTTP | Comma-separated browser origins allowed to call the endpoint. |
 | `DEVBOARD_INTERNAL_URL` | HTTP | Address the server uses to reach itself, if the default (the request's own address) doesn't work behind a proxy. |
+| `NEXT_PUBLIC_APP_URL` | Docs and snippets | Optional. The public address shown when it can't be read from the browser. |

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { AlertTriangle, Check, Copy, Info, Lightbulb } from "lucide-react";
 import { slugify } from "@/lib/docs-shared";
+import { useAppUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 
 const text = (node: ReactNode): string =>
@@ -56,6 +57,9 @@ const heading = (Tag: "h2" | "h3") =>
   };
 
 export function DocsMarkdown({ children }: { children: string }) {
+  // {{APP_URL}} becomes the address this site is opened on, so examples are copy-paste ready on any deployment.
+  const appUrl = useAppUrl();
+  const source = children.replaceAll("{{APP_URL}}", appUrl);
   return (
     <div className="docs-prose">
       <ReactMarkdown
@@ -69,7 +73,7 @@ export function DocsMarkdown({ children }: { children: string }) {
           a: ({ href = "", children }) => (href.startsWith("/") ? <Link href={href}>{children}</Link> : <a href={href} target="_blank" rel="noreferrer">{children}</a>),
         }}
       >
-        {children}
+        {source}
       </ReactMarkdown>
     </div>
   );
