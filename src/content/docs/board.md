@@ -37,12 +37,16 @@ Every column has a type so DevBoard knows how to treat its tasks, whatever you c
 | **In progress** | Any stage of active work: review, QA, blocked. | Counts as in progress on the dashboard. |
 | **Done** | Finished states. | Stamps the completion time and allows [archiving](/docs/backlog). |
 
+### Reorder columns
+
+Grab the **grip handle** (⋮⋮) at the left of a column's title and drag the column left or right. A bar shows where it will land, so you can insert a new column between To Do and In Progress, for example. The handle is separate from the cards, so dragging a column never moves a task, and dragging a task never moves a column.
+
 ### Manage a column
 
 Open the **⋯** menu on a column header to:
 
 - **Rename or change type.** Tasks inside follow the new meaning.
-- **Move left / Move right** to reorder the columns.
+- **Move left / Move right** to reorder the columns one step at a time.
 - **Archive all** (Done columns): hides every task in it. See [Backlog & archive](/docs/backlog).
 - **Delete column.** If it has tasks, you choose another column to move them to. A board always keeps at least one column.
 

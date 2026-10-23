@@ -166,7 +166,7 @@ function Breadcrumbs({ pathname, projects }: { pathname: string; projects: Proje
         <span key={i} className="flex min-w-0 items-center gap-1">
           {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
           {c.href && i < crumbs.length - 1 ? (
-            <Link href={c.href} className="truncate text-muted-foreground hover:text-foreground">{c.label}</Link>
+            <Link href={c.href} className="-my-2 truncate py-2 text-muted-foreground hover:text-foreground">{c.label}</Link>
           ) : (
             <span className="truncate font-medium">{c.label}</span>
           )}

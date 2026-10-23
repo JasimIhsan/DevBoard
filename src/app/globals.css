@@ -166,3 +166,9 @@ html, body { height: 100%; }
 .docs-prose th { background: var(--muted); font-weight: 600; white-space: nowrap; }
 .docs-prose tr:last-child td { border-bottom: 0; }
 .docs-prose hr { border-color: var(--border); }
+
+/* Touch screens: give small controls a finger-sized hit area. Icon buttons grow; checkboxes keep their look but get an invisible halo. */
+@media (pointer: coarse) {
+  [data-slot="button"][data-size^="icon"] { min-width: 2.25rem; min-height: 2.25rem; }
+  [data-slot="checkbox"]::after { content: ""; position: absolute; inset: -0.65rem; }
+}

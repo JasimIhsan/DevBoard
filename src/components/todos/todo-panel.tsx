@@ -108,7 +108,7 @@ function TodoRow({ todo }: { todo: TodoDTO }) {
                 <DueChip date={todo.dueDate} done={todo.done} />
               </DatePicker>
               {!todo.done && (
-                <button type="button" aria-label="Clear due date" onClick={() => setDue(todo, null)} className="text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-60"><X className="size-3" /></button>
+                <button type="button" aria-label="Clear due date" onClick={() => setDue(todo, null)} className="-m-1.5 p-1.5 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-60"><X className="size-3" /></button>
               )}
             </span>
           ) : (
@@ -205,7 +205,7 @@ export function TodoPanel({ autoFocus, className }: { autoFocus?: boolean; class
         {due ? (
           <span className="inline-flex items-center gap-1">
             Due {dueLabel(due)}
-            <button type="button" aria-label="Remove due date" onClick={() => setPickedDue({ value: null })} className="hover:text-foreground"><X className="size-3" /></button>
+            <button type="button" aria-label="Remove due date" onClick={() => setPickedDue({ value: null })} className="-m-1.5 p-1.5 hover:text-foreground"><X className="size-3" /></button>
           </span>
         ) : (
           <span>No due date</span>

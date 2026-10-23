@@ -36,7 +36,7 @@ Everything below is discovered automatically by MCP clients. You don't need to m
 | Tool | What it does |
 | --- | --- |
 | `create_column` | Adds a board column with a name and a type (`TODO`, `IN_PROGRESS` or `DONE`). |
-| `update_column` | Renames a column, changes its type, or moves it left or right. |
+| `update_column` | Renames a column, changes its type, or moves it: left/right, or before a named column (`before`), e.g. between To Do and In Progress. |
 | `delete_column` | Deletes a column, moving its tasks to `moveTo`. Requires `confirm: true`. |
 
 ## Projects

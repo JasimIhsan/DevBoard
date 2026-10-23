@@ -24,7 +24,11 @@ import { ImportCsvDialog } from "./import-csv-dialog";
 /** Where "Move to board" sends a task: the first To Do column (or the first column if none is marked To Do). */
 const defaultColumn = (columns: ColumnDTO[]) => columns.find((c) => c.category === "TODO") ?? columns[0];
 
-export function BacklogView({ projectKey, initialData }: { projectKey: string; initialData: ProjectBoardDTO }) {
+/**
+ * The backlog page. With `embedded` it renders as a panel (no page chrome or own scroll area) for use inside the
+ * board's side sheet; `focusArchived` scrolls the Archived section into view.
+ */
+export function BacklogView({ projectKey, initialData, embedded = false, focusArchived = false }: { projectKey: string; initialData: ProjectBoardDTO; embedded?: boolean; focusArchived?: boolean }) {
   const { data } = useBoard(projectKey, initialData);
   const board = data ?? initialData;
   const canAdd = !board.project.archived; // archived project: viewable and movable, but no new tasks or imports
@@ -97,16 +101,17 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
     clearSelection();
   };
 
-  const rowProps = { columns, onOpen: onOpenTask, onMove: moveToColumn, selected, onToggleSelect: toggleSelect };
+  const rowProps = { columns, onOpen: onOpenTask, onMove: moveToColumn, selected, onToggleSelect: toggleSelect, compact: embedded };
 
   return (
-    <div className="scroll-thin h-full overflow-y-auto">
-      {!canAdd && <ArchivedBanner project={board.project} />}
-      <div className="mx-auto max-w-5xl space-y-4 p-4">
+    <div className={embedded ? undefined : "scroll-thin h-full overflow-y-auto"}>
+      {!canAdd && !embedded && <ArchivedBanner project={board.project} />}
+      <div className={embedded ? "space-y-4" : "mx-auto max-w-5xl space-y-4 p-4"}>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="mr-auto text-base font-semibold">Backlog</h1>
-          <Button asChild size="sm" variant="outline"><Link href={`/projects/${projectKey}/board`}><LayoutGrid />Board{onBoardCount > 0 && <span className="text-muted-foreground">{onBoardCount}</span>}</Link></Button>
-          {canAdd && <Button size="sm" variant="outline" onClick={() => setImporting(true)}><FileUp />Import CSV</Button>}
+          {!embedded && <h1 className="mr-auto text-base font-semibold">Backlog</h1>}
+          {!embedded && <Button asChild size="sm" variant="outline"><Link href={`/projects/${projectKey}/board`}><LayoutGrid />Board{onBoardCount > 0 && <span className="text-muted-foreground">{onBoardCount}</span>}</Link></Button>}
+          {canAdd && <Button size="sm" variant="outline" className={embedded ? "ml-auto" : undefined} onClick={() => setImporting(true)}><FileUp />Import CSV</Button>}
+          {!canAdd && embedded && <span className="text-xs text-muted-foreground">Archived project: read-only</span>}
         </div>
         <BoardToolbar filters={filters} onChange={setFilters} labels={labels} />
         {selected.size > 0 ? (
@@ -128,7 +133,7 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
 
         <Section
           title="Backlog"
-          subtitle="Ideas and upcoming work. Move a task to the board when you're ready to start it."
+          subtitle={embedded ? undefined : "Ideas and upcoming work. Move a task to the board when you're ready to start it."}
           tasks={backlog}
           quickAdd={canAdd ? projectKey : undefined}
           emptyText={filters.q || filters.priority !== "all" || filters.type !== "all" || filters.label !== "all" ? "No tasks match the filters" : "The backlog is empty. Add a task below."}
@@ -137,7 +142,7 @@ export function BacklogView({ projectKey, initialData }: { projectKey: string; i
           {...rowProps}
         />
 
-        {archived.length > 0 && <ArchivedSection tasks={archived} onOpen={onOpenTask} onRestore={(task) => update.mutate({ task, patch: { archived: false } })} />}
+        {archived.length > 0 && <ArchivedSection tasks={archived} focus={focusArchived} onOpen={onOpenTask} onRestore={(task) => update.mutate({ task, patch: { archived: false } })} />}
       </div>
 
       <ImportCsvDialog projectKey={projectKey} columns={columns} open={importing} onOpenChange={setImporting} />
@@ -158,9 +163,11 @@ interface SectionProps {
   selected: ReadonlySet<string>;
   onToggleSelect: (t: TaskDTO, range: boolean) => void;
   onSelectMany: (ids: string[], on: boolean) => void;
+  /** Narrow panel: give the title the room (hide labels and the due chip). */
+  compact?: boolean;
 }
 
-function Section({ title, subtitle, tasks, quickAdd, emptyText, columns, startColumn, onOpen, onMove, selected, onToggleSelect, onSelectMany }: SectionProps) {
+function Section({ title, subtitle, tasks, quickAdd, emptyText, columns, startColumn, onOpen, onMove, selected, onToggleSelect, onSelectMany, compact }: SectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const points = tasks.reduce((n, t) => n + (t.estimate ?? 0), 0);
   const picked = tasks.filter((t) => selected.has(t.id)).length;
@@ -183,7 +190,7 @@ function Section({ title, subtitle, tasks, quickAdd, emptyText, columns, startCo
       {!collapsed && (
         <>
           <ul className="divide-y border-t">
-            {tasks.map((t) => <Row key={t.id} task={t} columns={columns} startColumn={startColumn} onOpen={onOpen} onMove={onMove} selected={selected.has(t.id)} anySelected={selected.size > 0} onToggleSelect={onToggleSelect} />)}
+            {tasks.map((t) => <Row key={t.id} task={t} columns={columns} startColumn={startColumn} onOpen={onOpen} onMove={onMove} selected={selected.has(t.id)} anySelected={selected.size > 0} onToggleSelect={onToggleSelect} compact={compact} />)}
             {tasks.length === 0 && <li className="px-4 py-5 text-center text-sm text-muted-foreground">{emptyText}</li>}
           </ul>
           {quickAdd && <QuickAdd projectKey={quickAdd} />}
@@ -193,10 +200,10 @@ function Section({ title, subtitle, tasks, quickAdd, emptyText, columns, startCo
   );
 }
 
-const Row = memo(function Row({ task, columns, startColumn, onOpen, onMove, selected, anySelected, onToggleSelect }: {
+const Row = memo(function Row({ task, columns, startColumn, onOpen, onMove, selected, anySelected, onToggleSelect, compact }: {
   task: TaskDTO; columns: ColumnDTO[]; startColumn?: ColumnDTO;
   onOpen: (t: TaskDTO) => void; onMove: (t: TaskDTO, columnId: string | null) => void;
-  selected: boolean; anySelected: boolean; onToggleSelect: (t: TaskDTO, range: boolean) => void;
+  selected: boolean; anySelected: boolean; onToggleSelect: (t: TaskDTO, range: boolean) => void; compact?: boolean;
 }) {
   const { update, remove } = useTaskActions();
   const confirm = useConfirm();
@@ -204,16 +211,16 @@ const Row = memo(function Row({ task, columns, startColumn, onOpen, onMove, sele
     <li data-selected={selected || undefined} className={cn("group flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/40", selected && "bg-primary/10 hover:bg-primary/15")}>
       <Checkbox checked={selected} onCheckedChange={() => onToggleSelect(task, false)} onClick={(e) => { if (e.shiftKey) { e.preventDefault(); onToggleSelect(task, true); } }} aria-label={`Select ${task.key}`} className={cn("size-4 shrink-0 transition-opacity", !selected && !anySelected && "opacity-30 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-60")} />
       <TypeIcon type={task.type} />
-      <button onClick={(e) => { if (e.shiftKey || e.metaKey || e.ctrlKey) onToggleSelect(task, e.shiftKey); else onOpen(task); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+      <button onClick={(e) => { if (e.shiftKey || e.metaKey || e.ctrlKey) onToggleSelect(task, e.shiftKey); else onOpen(task); }} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left max-sm:py-2.5">
         <span className="shrink-0 font-mono text-xs text-muted-foreground">{task.key}</span>
         <span className="truncate">{task.title}</span>
-        <span className="hidden gap-1 md:flex">{task.labels.slice(0, 2).map((l) => <LabelChip key={l} label={l} />)}</span>
+        {!compact && <span className="hidden gap-1 md:flex">{task.labels.slice(0, 2).map((l) => <LabelChip key={l} label={l} />)}</span>}
       </button>
-      {task.dueDate && <span className="hidden sm:block"><DueChip date={task.dueDate} /></span>}
+      {task.dueDate && !compact && <span className="hidden sm:block"><DueChip date={task.dueDate} /></span>}
       {task.estimate != null && <span className="rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground">{task.estimate}</span>}
       <PriorityBadge priority={task.priority} />
       {startColumn && (
-        <Button size="xs" variant="outline" className="shrink-0" title={`Move to ${startColumn.name} on the board`} onClick={() => onMove(task, startColumn.id)}>
+        <Button size="xs" variant="outline" className="shrink-0 max-sm:h-8 max-sm:px-2.5" title={`Move to ${startColumn.name} on the board`} onClick={() => onMove(task, startColumn.id)}>
           <span className="hidden sm:inline">Move to board</span><ArrowRight className="sm:hidden" /><ArrowRight className="hidden sm:inline" />
         </Button>
       )}
@@ -286,12 +293,12 @@ function QuickAdd({ projectKey }: { projectKey: string }) {
 }
 
 /** Done tasks that were archived: off the board, still Done. Open by default; restore puts one back in its Done column. */
-function ArchivedSection({ tasks, onOpen, onRestore }: { tasks: TaskDTO[]; onOpen: (t: TaskDTO) => void; onRestore: (t: TaskDTO) => void }) {
+function ArchivedSection({ tasks, focus, onOpen, onRestore }: { tasks: TaskDTO[]; focus?: boolean; onOpen: (t: TaskDTO) => void; onRestore: (t: TaskDTO) => void }) {
   const [open, setOpen] = useState(true);
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (window.location.hash === "#archived") ref.current?.scrollIntoView({ block: "start" });
-  }, []);
+    if (focus || window.location.hash === "#archived") ref.current?.scrollIntoView({ block: "start" });
+  }, [focus]);
   return (
     <section id="archived" ref={ref} className="scroll-mt-4 rounded-xl border">
       <button className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

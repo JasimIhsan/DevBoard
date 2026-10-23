@@ -88,6 +88,8 @@ export const updateColumnSchema = z.object({
   category: categoryEnum.optional(),
   /** Shift the column one place left or right on the board. */
   direction: z.enum(["left", "right"]).optional(),
+  /** Drop the column just before this column (drag and drop). null puts it at the far right. */
+  beforeColumnId: z.string().uuid().nullable().optional(),
 });
 
 export const subtaskSchema = z.object({ title: z.string().trim().min(1).max(200) });

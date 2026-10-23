@@ -62,7 +62,7 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
             title="Archive (hide from the board)"
             onClick={(e) => { e.stopPropagation(); onArchive(task); }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="-my-1 grid size-6 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-70"
+            className="-my-1 grid size-6 place-items-center rounded-md text-muted-foreground max-lg:size-8 opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-70"
           >
             <Archive className="size-3.5" />
           </button>
@@ -103,7 +103,7 @@ export const TaskCard = memo(forwardRef<HTMLDivElement, CardProps>(function Task
             title={`Copy: git checkout -b ${task.branchName}`}
             onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`git checkout -b ${task.branchName}`).then(() => toast.success("Copied git checkout command")); }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="inline-flex min-w-0 items-center gap-1 hover:text-foreground"
+            className="-my-1.5 inline-flex min-w-0 items-center gap-1 py-1.5 hover:text-foreground"
           >
             <GitBranch className="size-3 shrink-0" /><span className="max-w-28 truncate font-mono">{task.branchName}</span>
           </button>

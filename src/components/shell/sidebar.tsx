@@ -100,7 +100,7 @@ export function Sidebar({ projects, collapsed, onToggle, onNavigate }: { project
       )}
 
       <div className={cn("mt-4 mb-1 flex items-center px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground", collapsed && "justify-center px-0")}>
-        {collapsed ? "Proj" : <Link href="/projects" onClick={onNavigate} className={cn("hover:text-foreground", pathname === "/projects" && "text-foreground")}>Projects</Link>}
+        {collapsed ? "Proj" : <Link href="/projects" onClick={onNavigate} className={cn("-my-2 py-2 hover:text-foreground", pathname === "/projects" && "text-foreground")}>Projects</Link>}
         {!collapsed && (
           <>
             <Button asChild variant="ghost" size="icon-xs" className="ml-auto" aria-label="Manage projects" title="Manage projects"><Link href="/projects" onClick={onNavigate}><Settings2 /></Link></Button>

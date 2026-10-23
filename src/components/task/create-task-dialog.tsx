@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { api, qk, useBoard } from "@/lib/client";
 import { CATEGORY_META, PRIORITIES, PRIORITY_META, TASK_TYPES, TYPE_META } from "@/lib/constants";
 import { createTaskSchema } from "@/lib/validators";
-import type { Priority, TaskDTO, TaskType } from "@/lib/types";
+import type { Priority, ProjectDTO, TaskDTO, TaskType } from "@/lib/types";
 import { useUi } from "@/components/ui-state";
+import { useResolvedRecent } from "@/components/shell/recent-menu";
 
-export function CreateTaskDialog({ projects }: { projects: { key: string; name: string }[] }) {
+export function CreateTaskDialog({ projects }: { projects: ProjectDTO[] }) {
   const { createTask, closeCreateTask, openTask } = useUi();
   const open = createTask !== null;
   return (
@@ -28,10 +29,12 @@ export function CreateTaskDialog({ projects }: { projects: { key: string; name: 
   );
 }
 
-function Form({ projects, onDone }: { projects: { key: string; name: string }[]; onDone: (t?: TaskDTO) => void }) {
+function Form({ projects, onDone }: { projects: ProjectDTO[]; onDone: (t?: TaskDTO) => void }) {
   const { createTask: opts } = useUi();
   const qc = useQueryClient();
-  const [projectKey, setProjectKey] = useState(() => (opts?.projectKey && projects.some((p) => p.key === opts.projectKey!.toUpperCase()) ? opts.projectKey.toUpperCase() : projects[0]?.key ?? ""));
+  // Which project to preselect: the one you're in (a project page or a column's "+"), otherwise the one you worked in last.
+  const recent = useResolvedRecent(projects);
+  const [projectKey, setProjectKey] = useState(() => (opts?.projectKey && projects.some((p) => p.key === opts.projectKey!.toUpperCase()) ? opts.projectKey.toUpperCase() : recent[0]?.project.key ?? projects[0]?.key ?? ""));
   const { data: board } = useBoard(projectKey);
   const columns = board?.columns ?? [];
 

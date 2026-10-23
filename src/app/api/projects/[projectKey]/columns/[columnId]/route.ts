@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { assertWritable, badRequest, notFound } from "@/lib/api-utils";
-import { ORDER_STEP } from "@/lib/ordering";
+import { calculateOrderIndex, needsRebalance, ORDER_STEP, rebalancedIndexes } from "@/lib/ordering";
 import { serializeColumn } from "@/lib/serialize";
 import { updateColumnSchema } from "@/lib/validators";
 
@@ -15,7 +15,8 @@ async function load(params: Ctx["params"]) {
 }
 
 /**
- * PATCH { name?, category?, direction? }: rename, change what the column means, or shift it one place left/right.
+ * PATCH { name?, category?, direction?, beforeColumnId? }: rename, change what the column means, shift it one place
+ * left/right, or drop it before another column (null = last).
  * Changing the category re-labels the tasks in it (and stamps/clears their completion time).
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -26,11 +27,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { column, key } = found;
   const blocked = await assertWritable(key);
   if (blocked) return blocked;
-  const { name, category, direction } = parsed.data;
+  const { name, category, direction, beforeColumnId } = parsed.data;
 
   const siblings = await db.boardColumn.findMany({ where: { projectId: column.projectId }, orderBy: { orderIndex: "asc" } });
   if (name && siblings.some((c) => c.id !== column.id && c.name.toLowerCase() === name.toLowerCase())) {
     return NextResponse.json({ error: `A column named "${name}" already exists.` }, { status: 409 });
+  }
+
+  // Drag and drop: where the column lands among the others (without itself).
+  const others = siblings.filter((c) => c.id !== column.id);
+  const dropIndex = beforeColumnId === undefined ? -1 : beforeColumnId === null ? others.length : others.findIndex((c) => c.id === beforeColumnId);
+  if (beforeColumnId !== undefined && beforeColumnId !== null && dropIndex === -1) {
+    return NextResponse.json({ error: "The column to place this one before doesn't exist." }, { status: 400 });
   }
 
   const updated = await db.$transaction(async (tx) => {
@@ -50,6 +58,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       if (other) {
         await tx.boardColumn.update({ where: { id: other.id }, data: { orderIndex: column.orderIndex } });
         await tx.boardColumn.update({ where: { id: column.id }, data: { orderIndex: other.orderIndex } });
+      }
+    }
+    if (dropIndex !== -1) {
+      const prev = others[dropIndex - 1]?.orderIndex ?? null;
+      const next = others[dropIndex]?.orderIndex ?? null;
+      if (needsRebalance(prev, next)) {
+        // Float precision exhausted: re-space the whole board once.
+        const order = [...others.slice(0, dropIndex), column, ...others.slice(dropIndex)];
+        const fresh = rebalancedIndexes(order.length);
+        for (const [i, c] of order.entries()) await tx.boardColumn.update({ where: { id: c.id }, data: { orderIndex: fresh[i] } });
+      } else {
+        await tx.boardColumn.update({ where: { id: column.id }, data: { orderIndex: calculateOrderIndex(prev, next) } });
       }
     }
     return tx.boardColumn.update({ where: { id: column.id }, data: { ...(name ? { name } : {}), ...(category ? { category } : {}) } });

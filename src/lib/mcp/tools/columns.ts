@@ -37,14 +37,17 @@ export function registerColumnTools(server: McpServer, api: ApiFn) {
     "update_column",
     {
       title: "Rename, retype or move a column",
-      description: "Rename a column, change its category (tasks inside follow the new meaning), or shift it one place left or right on the board.",
-      inputSchema: { projectKey: z.string(), column: z.string().describe("Column name or id."), name: z.string().min(1).max(40).optional(), category: category.optional(), direction: z.enum(["left", "right"]).optional() },
+      description: 'Rename a column, change its category (tasks inside follow the new meaning), or reorder it: shift it one place with direction, or put it exactly where you want with before (the name of the column it should sit in front of, or "end"), for example before "In Progress" to insert it between To Do and In Progress.',
+      inputSchema: { projectKey: z.string(), column: z.string().describe("Column name or id."), name: z.string().min(1).max(40).optional(), category: category.optional(), direction: z.enum(["left", "right"]).optional(), before: z.string().optional().describe('Column to place this one before, or "end".') },
       annotations: WRITE_IDEMPOTENT,
     },
-    guarded(async ({ projectKey, column, ...patch }: { projectKey: string; column: string; name?: string; category?: string; direction?: string }) => {
-      if (Object.keys(patch).length === 0) throw new ApiError(400, "Nothing to update: pass name, category or direction.");
-      const c = findColumn(await getColumns(api, projectKey), column);
-      return { updated: view(await api<any>("PATCH", `/api/projects/${upper(projectKey)}/columns/${c.id}`, patch)) };
+    guarded(async ({ projectKey, column, before, ...patch }: { projectKey: string; column: string; name?: string; category?: string; direction?: string; before?: string }) => {
+      if (Object.keys(patch).length === 0 && before === undefined) throw new ApiError(400, "Nothing to update: pass name, category, direction or before.");
+      const columns = await getColumns(api, projectKey);
+      const c = findColumn(columns, column);
+      const body: Record<string, unknown> = { ...patch };
+      if (before !== undefined) body.beforeColumnId = /^(end|last)$/i.test(before.trim()) ? null : findColumn(columns, before).id;
+      return { updated: view(await api<any>("PATCH", `/api/projects/${upper(projectKey)}/columns/${c.id}`, body)) };
     }),
   );
 

@@ -176,7 +176,7 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
             editingDesc ? (
               <Button size="xs" onClick={() => { if (desc !== task.description) save({ description: desc }); setEditingDesc(false); }}><Check />Save</Button>
             ) : (
-              <Button size="xs" variant="ghost" onClick={() => { setDesc(task.description); setEditingDesc(true); }}>Edit</Button>
+              <Button size="xs" variant="ghost" className="max-sm:h-8 max-sm:px-3" onClick={() => { setDesc(task.description); setEditingDesc(true); }}>Edit</Button>
             )
           }
         >
@@ -196,7 +196,7 @@ function Detail({ task, onClose }: { task: TaskDetailDTO; onClose: () => void })
               <li key={s.id} className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/50">
                 <Checkbox checked={s.done} onCheckedChange={(v) => subtaskMut.mutate({ method: "PATCH", json: { id: s.id, done: v === true } })} />
                 <span className={s.done ? "text-sm text-muted-foreground line-through" : "text-sm"}>{s.title}</span>
-                <button className="ml-auto opacity-0 transition group-hover:opacity-100 max-lg:opacity-60" aria-label="Remove subtask" onClick={() => subtaskMut.mutate({ method: "DELETE", id: s.id })}><X className="size-3.5 text-muted-foreground" /></button>
+                <button className="-m-2 ml-auto p-2 opacity-0 transition group-hover:opacity-100 max-lg:opacity-60" aria-label="Remove subtask" onClick={() => subtaskMut.mutate({ method: "DELETE", id: s.id })}><X className="size-3.5 text-muted-foreground" /></button>
               </li>
             ))}
           </ul>

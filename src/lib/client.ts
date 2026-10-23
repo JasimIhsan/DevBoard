@@ -271,6 +271,18 @@ export function useTaskActions() {
   return { moveTask, update, remove };
 }
 
+/** The columns after moving `id` just before `beforeId` (null = to the end), with a fresh order index for the moved one. */
+export function moveColumnLocal(columns: ColumnDTO[], id: string, beforeId: string | null): ColumnDTO[] {
+  const sorted = [...columns].sort((a, b) => a.orderIndex - b.orderIndex);
+  const moving = sorted.find((c) => c.id === id);
+  if (!moving) return columns;
+  const others = sorted.filter((c) => c.id !== id);
+  const at = beforeId === null ? others.length : others.findIndex((c) => c.id === beforeId);
+  if (at === -1) return columns;
+  const orderIndex = calculateOrderIndex(others[at - 1]?.orderIndex ?? null, others[at]?.orderIndex ?? null);
+  return [...others.slice(0, at), { ...moving, orderIndex }, ...others.slice(at)];
+}
+
 /** Board column management for one project: add, rename, recolour, reorder, delete, and archive everything done. */
 export function useColumnActions(projectKey: string) {
   const qc = useQueryClient();
@@ -287,6 +299,21 @@ export function useColumnActions(projectKey: string) {
     update: useMutation({
       mutationFn: ({ id, ...json }: { id: string; name?: string; category?: ColumnCategory; direction?: "left" | "right" }) => api<ColumnDTO>(`${base}/${id}`, { method: "PATCH", json }),
       onError,
+      onSettled: refresh,
+    }),
+    /** Drag and drop: put a column before another one (null = last). Shown instantly, rolled back on failure. */
+    reorder: useMutation({
+      mutationFn: ({ id, beforeColumnId }: { id: string; beforeColumnId: string | null }) => api<ColumnDTO>(`${base}/${id}`, { method: "PATCH", json: { beforeColumnId } }),
+      onMutate: async ({ id, beforeColumnId }) => {
+        await qc.cancelQueries({ queryKey: qk.board(projectKey) }, { revert: false });
+        const prev = qc.getQueryData<ProjectBoardDTO>(qk.board(projectKey))?.columns;
+        patchBoard(qc, projectKey, (b) => ({ ...b, columns: moveColumnLocal(b.columns, id, beforeColumnId) }));
+        return { prev };
+      },
+      onError: (e, _v, ctx) => {
+        if (ctx?.prev) patchBoard(qc, projectKey, (b) => ({ ...b, columns: ctx.prev! }));
+        toast.error(`Couldn't move the column: ${e.message}`);
+      },
       onSettled: refresh,
     }),
     remove: useMutation({

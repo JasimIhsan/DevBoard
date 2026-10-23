@@ -6,7 +6,7 @@ import {
   useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type UniqueIdentifier, type DragOverEvent, type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Plus } from "lucide-react";
+import { GripVertical, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META } from "@/lib/constants";
 import { useTaskActions } from "@/lib/client";
@@ -35,16 +35,31 @@ const findLane = (lanes: Lanes, id: unknown): Col | undefined => {
   return Object.keys(lanes).find((s) => lanes[s].includes(id as string));
 };
 
-export function DesktopBoard({ columns, tasks, onOpen, onCreate, onArchive, actions, onAddColumn }: {
+/** Mime type for the column drag, so nothing else on the page (links, text, files) can be mistaken for it. */
+const COLUMN_MIME = "application/x-devboard-column";
+
+/** Native-DnD state for reordering columns. Deliberately separate from the card drag (dnd-kit): different events, no shared state. */
+interface ColumnDrag {
+  dragId: string | null;
+  /** Column the dragged one would land before; null = the far right; undefined = nowhere (no change). */
+  dropBefore: string | null | undefined;
+  onStart: (e: React.DragEvent, column: ColumnDTO, el: HTMLElement | null) => void;
+  onEnd: () => void;
+  onOver: (e: React.DragEvent, index: number) => void;
+}
+
+export function DesktopBoard({ columns, tasks, onOpen, onCreate, onArchive, actions, onReorderColumn }: {
   columns: ColumnDTO[];
   tasks: TaskDTO[];
   onOpen: (t: TaskDTO) => void;
   onCreate?: (columnId: string) => void;
   onArchive?: (t: TaskDTO) => void;
   actions?: ColumnActions;
-  onAddColumn?: () => void;
+  /** Drop a column before another one (null = last). Omit to make the columns fixed (archived project). */
+  onReorderColumn?: (columnId: string, beforeColumnId: string | null) => void;
 }) {
   const { moveTask } = useTaskActions();
+  const [colDrag, setColDrag] = useState<{ id: string; before: string | null | undefined } | null>(null);
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const base = useMemo(() => groupIds(tasks, columns), [tasks, columns]);
   const [drag, setDrag] = useState<Lanes | null>(null);
@@ -149,34 +164,89 @@ export function DesktopBoard({ columns, tasks, onOpen, onCreate, onArchive, acti
 
   const activeTask = activeId ? byId.get(activeId) : undefined;
 
+  // Where would the dragged column land? Pointer in the left half of a column = before it, right half = after it.
+  const dragIndex = colDrag ? columns.findIndex((c) => c.id === colDrag.id) : -1;
+  const resolveDrop = (index: number, e: React.DragEvent): string | null | undefined => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const before = e.clientX < rect.left + rect.width / 2 ? columns[index].id : columns[index + 1]?.id ?? null;
+    const sameSpot = before === colDrag?.id || (before === null ? dragIndex === columns.length - 1 : before === columns[dragIndex + 1]?.id);
+    return sameSpot ? undefined : before;
+  };
+  const columnDrag: ColumnDrag | undefined = onReorderColumn
+    ? {
+        dragId: colDrag?.id ?? null,
+        dropBefore: colDrag?.before,
+        onStart: (e, column, el) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData(COLUMN_MIME, column.id);
+          if (el) e.dataTransfer.setDragImage(el, 24, 20);
+          setColDrag({ id: column.id, before: undefined });
+        },
+        onEnd: () => setColDrag(null),
+        onOver: (e, index) => {
+          if (!colDrag) return; // not a column drag (e.g. a file dragged over the page)
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          const before = resolveDrop(index, e);
+          setColDrag((cur) => (cur && cur.before !== before ? { ...cur, before } : cur));
+        },
+      }
+    : undefined;
+  const dropColumn = (e: React.DragEvent) => {
+    if (!colDrag) return;
+    e.preventDefault();
+    const { id, before } = colDrag;
+    setColDrag(null);
+    if (before !== undefined) onReorderColumn?.(id, before);
+  };
+
   return (
     <DndContext sensors={sensors} collisionDetection={collision} autoScroll={AUTO_SCROLL} measuring={MEASURING} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { setDrag(null); setActiveId(null); lastOverId.current = null; }}>
-      <div className="scroll-thin grid h-full auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-4">
+      <div onDragOver={(e) => { if (colDrag) e.preventDefault(); }} onDrop={dropColumn} className="scroll-thin grid h-full auto-cols-[minmax(13rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-4">
         {columns.map((column, index) => (
-          <Column key={column.id} column={column} index={index} total={columns.length} ids={lanes[column.id] ?? []} byId={byId} onOpen={onOpen} onCreate={onCreate} onArchive={onArchive} actions={actions} highlight={!!activeId && (lanes[column.id] ?? []).includes(activeId)} />
+          <Column key={column.id} column={column} index={index} total={columns.length} ids={lanes[column.id] ?? []} byId={byId} onOpen={onOpen} onCreate={onCreate} onArchive={onArchive} actions={actions} columnDrag={columnDrag} highlight={!!activeId && (lanes[column.id] ?? []).includes(activeId)} />
         ))}
-        {onAddColumn && (
-          <button type="button" onClick={onAddColumn} className="flex min-h-24 w-56 items-start gap-2 rounded-xl border border-dashed px-3 py-3 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground">
-            <Plus className="mt-0.5 size-4" />Add column
-          </button>
-        )}
       </div>
       <DragOverlay dropAnimation={null} zIndex={50}>{activeTask ? <TaskCard task={activeTask} overlay /> : null}</DragOverlay>
     </DndContext>
   );
 }
 
-const Column = memo(function Column({ column, index, total, ids, byId, onOpen, onCreate, onArchive, actions, highlight }: {
+const Column = memo(function Column({ column, index, total, ids, byId, onOpen, onCreate, onArchive, actions, columnDrag, highlight }: {
   column: ColumnDTO; index: number; total: number; ids: string[]; byId: Map<string, TaskDTO>;
-  onOpen: (t: TaskDTO) => void; onCreate?: (columnId: string) => void; onArchive?: (t: TaskDTO) => void; actions?: ColumnActions; highlight: boolean;
+  onOpen: (t: TaskDTO) => void; onCreate?: (columnId: string) => void; onArchive?: (t: TaskDTO) => void; actions?: ColumnActions; columnDrag?: ColumnDrag; highlight: boolean;
 }) {
+  const sectionRef = useRef<HTMLElement>(null);
   const { setNodeRef } = useDroppable({ id: colId(column.id) });
   const isOver = highlight;
   const items = ids.map((id) => byId.get(id)).filter((t): t is TaskDTO => !!t);
   const points = items.reduce((n, t) => n + (t.estimate ?? 0), 0);
+  const dragging = columnDrag?.dragId === column.id;
+  const bar = "pointer-events-none absolute top-0 bottom-0 z-10 w-1 rounded-full bg-primary";
   return (
-    <section aria-label={column.name} className={cn("flex min-h-0 min-w-64 flex-col rounded-xl border bg-muted/30 ", isOver && "border-foreground/30 bg-muted/60")}>
+    <section
+      ref={sectionRef}
+      aria-label={column.name}
+      onDragOver={columnDrag ? (e) => columnDrag.onOver(e, index) : undefined}
+      className={cn("relative flex min-h-0 min-w-0 flex-col rounded-xl border bg-muted/30 transition-opacity", isOver && "border-foreground/30 bg-muted/60", dragging && "opacity-40")}
+    >
+      {columnDrag?.dragId && columnDrag.dropBefore === column.id && <span className={cn(bar, "-left-2")} />}
+      {columnDrag?.dragId && columnDrag.dropBefore === null && index === total - 1 && <span className={cn(bar, "-right-2")} />}
       <header className="flex items-center gap-2 px-3 py-2.5">
+        {columnDrag && (
+          <span
+            draggable
+            role="button"
+            tabIndex={-1}
+            aria-label={`Drag to reorder column ${column.name}`}
+            title="Drag to reorder this column"
+            onDragStart={(e) => columnDrag.onStart(e, column, sectionRef.current)}
+            onDragEnd={columnDrag.onEnd}
+            className="-ml-1.5 cursor-grab text-muted-foreground/50 hover:text-foreground active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" />
+          </span>
+        )}
         <span className={cn("inline-block size-2 shrink-0 rounded-full", CATEGORY_META[column.category].dot)} />
         <h2 className="min-w-0 truncate text-sm font-medium" title={column.name}>{column.name}</h2>
         <span className="text-xs text-muted-foreground">{items.length}</span>

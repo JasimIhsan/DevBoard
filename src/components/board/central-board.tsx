@@ -161,7 +161,7 @@ function CentralColumns({ tasks, columnsOf, accentFor, onOpen, onCreate }: { tas
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
-      <div className="grid h-full grid-cols-[repeat(3,minmax(17rem,1fr))] gap-3 overflow-x-auto p-4">
+      <div className="grid h-full grid-cols-[repeat(3,minmax(13rem,1fr))] gap-3 overflow-x-auto p-4">
         {CATEGORIES.map((s) => (
           <Column key={s} status={s} tasks={lanes[s]} accentFor={accentFor} onOpen={onOpen} onCreate={onCreate} />
         ))}
@@ -175,7 +175,7 @@ const Column = memo(function Column({ status, tasks, accentFor, onOpen, onCreate
   const { setNodeRef, isOver } = useDroppable({ id: `col:${status}` });
   const points = tasks.reduce((n, t) => n + (t.estimate ?? 0), 0);
   return (
-    <section aria-label={CATEGORY_META[status].label} className={cn("flex min-h-0 min-w-64 flex-col rounded-xl border bg-muted/30", isOver && "border-foreground/30 bg-muted/60")}>
+    <section aria-label={CATEGORY_META[status].label} className={cn("flex min-h-0 min-w-0 flex-col rounded-xl border bg-muted/30", isOver && "border-foreground/30 bg-muted/60")}>
       <header className="flex items-center gap-2 px-3 py-2.5">
         <span className={cn("inline-block size-2 shrink-0 rounded-full", CATEGORY_META[status].dot)} />
         <h2 className="text-sm font-medium">{CATEGORY_META[status].label}</h2>

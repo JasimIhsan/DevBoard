@@ -114,7 +114,7 @@ function Body() {
 
       <Tabs defaultValue="claude-code">
         <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-6">
-          {TABS.map((t) => <TabsTrigger key={t.id} value={t.id} className="text-xs">{t.label}</TabsTrigger>)}
+          {TABS.map((t) => <TabsTrigger key={t.id} value={t.id} className="text-xs max-sm:py-2.5">{t.label}</TabsTrigger>)}
         </TabsList>
         {TABS.map((t) => (
           <TabsContent key={t.id} value={t.id} className="mt-3 space-y-4">
